@@ -4,6 +4,8 @@ import numpy as np
 import cv2
 from picamera2 import Picamera2
 
+"""Generate ROS camera_info-style camera.yaml for Wingxtra precision landing."""
+
 CHESSBOARD = (9, 6)  # inner corners
 SQUARE_SIZE_M = 0.0245  # measure your print (meters)
 NUM_GOOD_FRAMES = 25
