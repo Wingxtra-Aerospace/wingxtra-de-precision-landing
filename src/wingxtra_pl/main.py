@@ -5,7 +5,6 @@ import configparser
 import json
 import os
 from pathlib import Path
-import socket
 import time
 from typing import Callable, Iterator
 import yaml
@@ -344,31 +343,56 @@ def _read_databus_from_droneengage_configs() -> tuple[str | None, int | None]:
     return None, None
 
 
-def probe_databus_port(args, cfg) -> tuple[str, int] | None:
-    ports = _candidate_ports(args, cfg)
+def _local_udp_ports() -> set[int]:
+    ports: set[int] = set()
+    for proc_file in ("/proc/net/udp", "/proc/net/udp6"):
+        path = Path(proc_file)
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for line in lines[1:]:
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            local_hex = parts[1]
+            if ":" not in local_hex:
+                continue
+            _addr_hex, port_hex = local_hex.rsplit(":", 1)
+            try:
+                ports.add(int(port_hex, 16))
+            except ValueError:
+                continue
+    return ports
+
+
+def _is_local_host(host: str) -> bool:
+    return host in {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
+
+
+def _discover_local_bound_candidate_port(args, cfg) -> tuple[str, int] | None:
     hosts = _candidate_hosts(args, cfg)
-    if not ports or not hosts:
+    ports = _candidate_ports(args, cfg)
+    if not hosts or not ports:
         return None
 
-    probe = json.dumps(
-        {"probe": "wingxtra_databus_port_check"}, separators=(",", ":")
-    ).encode("utf-8")
-
+    local_ports = _local_udp_ports()
     for host in hosts:
+        if not _is_local_host(str(host)):
+            continue
         for port in ports:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(0.08)
-            try:
-                sock.sendto(probe, (str(host), int(port)))
-                _payload, sender = sock.recvfrom(4096)
-                if sender[0] == str(host) and sender[1] == int(port):
-                    return str(host), int(port)
-            except OSError:
-                continue
-            finally:
-                sock.close()
-
+            if int(port) in local_ports:
+                return str(host), int(port)
     return None
+
+def probe_databus_port(args, cfg) -> tuple[str, int] | None:
+    """
+    Best-effort port probe. Prefers safe local inspection to avoid UDP false positives.
+    For localhost candidates, this checks whether candidate ports are currently bound.
+    """
+    return _discover_local_bound_candidate_port(args, cfg)
 
 
 def discover_databus_endpoint(args, cfg, *, allow_probe: bool) -> tuple[str, int] | None:
@@ -380,22 +404,6 @@ def discover_databus_endpoint(args, cfg, *, allow_probe: bool) -> tuple[str, int
 
     if allow_probe:
         return probe_databus_port(args, cfg)
-
-    return None
-
-
-def discover_databus_endpoint(args, cfg) -> tuple[str, int] | None:
-    cfg_host, cfg_port = _read_databus_from_droneengage_configs()
-    if cfg_port is not None:
-        resolved_host = cfg_host or next(iter(_candidate_hosts(args, cfg)), None)
-        if resolved_host:
-            return resolved_host, int(cfg_port)
-
-    probed = probe_databus_port(args, cfg)
-    if probed is not None:
-        host = next(iter(_candidate_hosts(args, cfg)), None)
-        if host:
-            return host, int(probed)
 
     return None
 
