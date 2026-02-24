@@ -1,0 +1,17 @@
+[Unit]
+Description=Wingxtra Precision Landing (DroneEngage INTERNAL MAVLink)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/wingxtra-de-precision-landing
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/etc/default/wingxtra-precision-landing
+ExecStart=/opt/wingxtra-de-precision-landing/scripts/run.sh
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

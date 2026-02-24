@@ -80,7 +80,7 @@ Adds stale timeout: if target unseen for N ms → stop sending LANDING_TARGET
 
 ## Milestone F — Deployable on Wingxtra drones
 
-Status: ⬜ pending
+Status: ✅ in progress branch (criteria implemented)
 
 Done when:
 

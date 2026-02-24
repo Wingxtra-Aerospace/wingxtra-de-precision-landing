@@ -67,6 +67,15 @@ python tools/fake_databus_rx.py --port 60000
 ```
 
 ## Setup (on the DroneEngage Pi)
+### Per-drone setup checklist
+
+- [ ] Clone repo onto the same Pi that runs DroneEngage.
+- [ ] Install Python dependencies (`pip3 install -r requirements.txt`).
+- [ ] Generate per-aircraft `camera.yaml` using `tools/calibrate_camera.py`.
+- [ ] Verify `camera.yaml` resolution matches `config.yaml` camera width/height.
+- [ ] Verify `landing-target.json` corresponds to the physical target in use.
+- [ ] Configure DataBus destination via CLI/ENV/config (`databus_host`, `databus_port`).
+
 1. Install dependencies:
    - Raspberry Pi OS + libcamera
    - `sudo apt update`
@@ -81,6 +90,15 @@ python tools/fake_databus_rx.py --port 60000
 ```bash
 python3 -m src.wingxtra_pl.main
 ```
+
+### Preflight checklist
+
+- [ ] Start with `--dry-run --debug-overlay` and confirm stable detections.
+- [ ] Confirm IDs shown in overlay match expected tags on target board.
+- [ ] Confirm x/y/z signs move as expected when shifting target position.
+- [ ] Confirm reprojection RMSE remains below configured threshold.
+- [ ] Confirm no process in this module opens `/dev/serial0`.
+- [ ] Only then run without `--dry-run` for INTERNAL MAVLink publication.
 
 ### DataBus host/port overrides
 
@@ -136,3 +154,18 @@ python -m py_compile $(rg --files src tools -g '*.py')
 - `stability.max_reproj_rmse_px`: gate high-error pose solves.
 - `stability.ema_alpha`: EMA smoothing factor for body-frame x/y/z.
 - `stability.stale_timeout_ms`: reset tracking state when target is stale.
+
+## Service deployment
+
+Template and scripts are included for deployment on drones:
+
+- systemd unit template: `systemd/wingxtra-precision-landing.service`
+- install helper: `scripts/install.sh`
+- runtime wrapper: `scripts/run.sh`
+
+Install example:
+
+```bash
+sudo ./scripts/install.sh
+sudo systemctl start wingxtra-precision-landing.service
+```
