@@ -212,12 +212,16 @@ def resolve_databus_endpoint(args, cfg) -> tuple[str, int]:
     if not host:
         host = _parse_host(cfg_host, "config.yaml:mavlink_out.databus_host")
 
-    env_port_raw = os.getenv("DATABUS_PORT")
-    env_port = _parse_port(env_port_raw, "environment variable DATABUS_PORT")
     cli_port = _parse_port(args.databus_port, "--databus-port")
-    port = cli_port if cli_port is not None else env_port
-    if port is None:
-        port = _parse_port(cfg_port, "config.yaml:mavlink_out.databus_port")
+    if cli_port is not None:
+        port = cli_port
+    else:
+        env_port_raw = os.getenv("DATABUS_PORT")
+        env_port = _parse_port(env_port_raw, "environment variable DATABUS_PORT")
+        if env_port is not None:
+            port = env_port
+        else:
+            port = _parse_port(cfg_port, "config.yaml:mavlink_out.databus_port")
 
     if port is None:
         raise ValueError(

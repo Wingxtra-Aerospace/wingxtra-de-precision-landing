@@ -124,6 +124,25 @@ class DatabusParseTests(unittest.TestCase):
             else:
                 os.environ['DATABUS_HOST'] = old_host
 
+    def test_cli_port_precedence_ignores_invalid_env_port(self):
+        old_port = os.environ.get('DATABUS_PORT')
+        old_host = os.environ.get('DATABUS_HOST')
+        try:
+            os.environ['DATABUS_HOST'] = 'env-host'
+            os.environ['DATABUS_PORT'] = 'not-a-number'
+            cfg = {'mavlink_out': {'databus_host': 'cfg-host', 'databus_port': 15000}}
+            args = SimpleNamespace(databus_host='cli-host', databus_port=13000)
+            self.assertEqual(self.resolve_databus_endpoint(args, cfg), ('cli-host', 13000))
+        finally:
+            if old_port is None:
+                os.environ.pop('DATABUS_PORT', None)
+            else:
+                os.environ['DATABUS_PORT'] = old_port
+            if old_host is None:
+                os.environ.pop('DATABUS_HOST', None)
+            else:
+                os.environ['DATABUS_HOST'] = old_host
+
 
 if __name__ == '__main__':
     unittest.main()
