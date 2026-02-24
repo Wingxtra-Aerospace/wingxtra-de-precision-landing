@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import configparser
-import json
 import os
 from pathlib import Path
 import time
@@ -111,17 +109,6 @@ def parse_args():
         help="DroneEngage DataBus port override (priority: CLI > ENV > config)",
     )
     parser.add_argument(
-        "--databus-sniff",
-        action="store_true",
-        help="Infer active DataBus UDP port by probing/sniffing candidates",
-    )
-    parser.add_argument(
-        "--databus-sniff-ports",
-        type=str,
-        default=None,
-        help="Comma-separated UDP ports for --databus-sniff (e.g. '60000,60001')",
-    )
-    parser.add_argument(
         "--video",
         type=str,
         default=None,
@@ -207,16 +194,17 @@ def resolve_databus_endpoint(args, cfg):
         port = int(cfg_port) if cfg_port is not None else None
 
     if port is None:
-        discovered = discover_databus_endpoint(args, cfg, allow_probe=args.databus_sniff)
+        discovered = discover_databus_endpoint()
         if discovered:
-            host = host or discovered[0]
+            if not host and discovered[0]:
+                host = discovered[0]
             port = discovered[1]
 
     if port is None:
         raise ValueError(
             "DataBus destination port is not set. Configure one using either "
             "--databus-port, environment variable DATABUS_PORT, or "
-            "config.yaml:mavlink_out.databus_port. Optionally use --databus-sniff"
+            "config.yaml:mavlink_out.databus_port"
         )
 
     if not host:
@@ -227,50 +215,6 @@ def resolve_databus_endpoint(args, cfg):
         )
 
     return str(host), int(port)
-
-
-def _candidate_ports(args, cfg) -> list[int]:
-    ports: list[int] = []
-
-    if args.databus_sniff_ports:
-        for p in args.databus_sniff_ports.split(","):
-            p = p.strip()
-            if p:
-                ports.append(int(p))
-
-    cfg_candidates = cfg["mavlink_out"].get("databus_candidate_ports", [])
-    for p in cfg_candidates:
-        ports.append(int(p))
-
-    env_candidates = os.getenv("DATABUS_CANDIDATE_PORTS", "")
-    if env_candidates:
-        for p in env_candidates.split(","):
-            p = p.strip()
-            if p:
-                ports.append(int(p))
-
-    seen = set()
-    unique = []
-    for p in ports:
-        if p not in seen:
-            seen.add(p)
-            unique.append(p)
-    return unique
-
-
-def _candidate_hosts(args, cfg) -> list[str]:
-    hosts = [
-        args.databus_host,
-        os.getenv("DATABUS_HOST"),
-        cfg["mavlink_out"].get("databus_host"),
-    ]
-    unique: list[str] = []
-    seen = set()
-    for h in hosts:
-        if h and h not in seen:
-            seen.add(h)
-            unique.append(str(h))
-    return unique
 
 
 def _read_databus_from_droneengage_configs() -> tuple[str | None, int | None]:
@@ -343,128 +287,11 @@ def _read_databus_from_droneengage_configs() -> tuple[str | None, int | None]:
     return None, None
 
 
-def _udp_socket_inodes_by_port() -> dict[int, set[str]]:
-    by_port: dict[int, set[str]] = {}
-    for proc_file in ("/proc/net/udp", "/proc/net/udp6"):
-        path = Path(proc_file)
-        if not path.exists():
-            continue
-        try:
-            lines = path.read_text(encoding="utf-8").splitlines()
-        except OSError:
-            continue
-
-        for line in lines[1:]:
-            parts = line.split()
-            if len(parts) < 10:
-                continue
-            local_hex = parts[1]
-            inode = parts[9]
-            if ":" not in local_hex:
-                continue
-            _addr_hex, port_hex = local_hex.rsplit(":", 1)
-            try:
-                port = int(port_hex, 16)
-            except ValueError:
-                continue
-            by_port.setdefault(port, set()).add(inode)
-
-    return by_port
-
-
-def _socket_inode_process_names() -> dict[str, set[str]]:
-    inode_to_names: dict[str, set[str]] = {}
-    proc_root = Path("/proc")
-    try:
-        proc_entries = list(proc_root.iterdir())
-    except OSError:
-        return inode_to_names
-
-    for entry in proc_entries:
-        if not entry.name.isdigit():
-            continue
-        fd_dir = entry / "fd"
-        if not fd_dir.is_dir():
-            continue
-
-        comm = ""
-        try:
-            comm = (entry / "comm").read_text(encoding="utf-8").strip().lower()
-        except OSError:
-            pass
-        if not comm:
-            continue
-
-        try:
-            for fd in fd_dir.iterdir():
-                try:
-                    link_target = os.readlink(fd)
-                except OSError:
-                    continue
-                if link_target.startswith("socket:[") and link_target.endswith("]"):
-                    inode = link_target[8:-1]
-                    inode_to_names.setdefault(inode, set()).add(comm)
-        except OSError:
-            continue
-
-    return inode_to_names
-
-
-def _is_local_host(host: str) -> bool:
-    return host in {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
-
-
-def _is_droneengage_process_name(name: str) -> bool:
-    normalized = name.strip().lower()
-    exact = {"de_comm", "droneengage", "andruav"}
-    prefixes = ("droneengage-", "de_")
-    return normalized in exact or normalized.startswith(prefixes)
-
-
-def _discover_local_bound_candidate_port(args, cfg) -> tuple[str, int] | None:
-    hosts = _candidate_hosts(args, cfg)
-    ports = _candidate_ports(args, cfg)
-    if not hosts or not ports:
-        return None
-
-    by_port = _udp_socket_inodes_by_port()
-    inode_to_names = _socket_inode_process_names()
-
-    for host in hosts:
-        if not _is_local_host(str(host)):
-            continue
-        for port in ports:
-            inodes = by_port.get(int(port), set())
-            if not inodes:
-                continue
-
-            for inode in inodes:
-                proc_names = inode_to_names.get(inode, set())
-                if any(_is_droneengage_process_name(name) for name in proc_names):
-                    return str(host), int(port)
-
-    return None
-
-
-def probe_databus_port(args, cfg) -> tuple[str, int] | None:
-    """
-    Best-effort port probe using local socket-table inspection.
-    Prioritizes candidate ports currently bound by DroneEngage-like processes.
-    """
-    return _discover_local_bound_candidate_port(args, cfg)
-
-
-def discover_databus_endpoint(args, cfg, *, allow_probe: bool) -> tuple[str, int] | None:
+def discover_databus_endpoint() -> tuple[str | None, int] | None:
     cfg_host, cfg_port = _read_databus_from_droneengage_configs()
-    if cfg_port is not None:
-        resolved_host = cfg_host or next(iter(_candidate_hosts(args, cfg)), None)
-        if resolved_host:
-            return str(resolved_host), int(cfg_port)
-
-    if allow_probe:
-        return probe_databus_port(args, cfg)
-
-    return None
+    if cfg_port is None:
+        return None
+    return cfg_host, int(cfg_port)
 
 
 def main():
