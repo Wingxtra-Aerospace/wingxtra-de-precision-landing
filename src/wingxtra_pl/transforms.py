@@ -7,15 +7,15 @@ def rpy_deg_to_rotmat(roll_deg: float, pitch_deg: float, yaw_deg: float) -> np.n
     p = np.deg2rad(pitch_deg)
     y = np.deg2rad(yaw_deg)
 
-    Rx = np.array([[1, 0, 0],
-                   [0, np.cos(r), -np.sin(r)],
-                   [0, np.sin(r),  np.cos(r)]], dtype=float)
-    Ry = np.array([[ np.cos(p), 0, np.sin(p)],
-                   [0,          1, 0],
-                   [-np.sin(p), 0, np.cos(p)]], dtype=float)
-    Rz = np.array([[np.cos(y), -np.sin(y), 0],
-                   [np.sin(y),  np.cos(y), 0],
-                   [0,          0,         1]], dtype=float)
+    Rx = np.array(
+        [[1, 0, 0], [0, np.cos(r), -np.sin(r)], [0, np.sin(r), np.cos(r)]], dtype=float
+    )
+    Ry = np.array(
+        [[np.cos(p), 0, np.sin(p)], [0, 1, 0], [-np.sin(p), 0, np.cos(p)]], dtype=float
+    )
+    Rz = np.array(
+        [[np.cos(y), -np.sin(y), 0], [np.sin(y), np.cos(y), 0], [0, 0, 1]], dtype=float
+    )
 
     return Rz @ Ry @ Rx
 
