@@ -183,18 +183,34 @@ def _parse_port(value, source: str) -> int | None:
     if value is None:
         return None
     try:
-        return int(value)
+        port = int(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid DataBus port from {source}: {value!r}") from exc
+    if port < 1 or port > 65535:
+        raise ValueError(
+            f"Invalid DataBus port from {source}: {value!r} (expected 1..65535)"
+        )
+    return port
+
+
+def _parse_host(value, source: str) -> str | None:
+    if value is None:
+        return None
+    host = str(value).strip()
+    if not host:
+        raise ValueError(f"Invalid DataBus host from {source}: {value!r}")
+    return host
 
 
 def resolve_databus_endpoint(args, cfg) -> tuple[str, int]:
     cfg_host = cfg["mavlink_out"].get("databus_host")
     cfg_port = cfg["mavlink_out"].get("databus_port")
 
-    host = args.databus_host
+    host = _parse_host(args.databus_host, "--databus-host")
     if not host:
-        host = os.getenv("DATABUS_HOST") or cfg_host
+        host = _parse_host(os.getenv("DATABUS_HOST"), "environment variable DATABUS_HOST")
+    if not host:
+        host = _parse_host(cfg_host, "config.yaml:mavlink_out.databus_host")
 
     env_port_raw = os.getenv("DATABUS_PORT")
     env_port = _parse_port(env_port_raw, "environment variable DATABUS_PORT")
@@ -217,7 +233,7 @@ def resolve_databus_endpoint(args, cfg) -> tuple[str, int]:
             "config.yaml:mavlink_out.databus_host"
         )
 
-    return str(host), int(port)
+    return host, int(port)
 
 
 def main():
