@@ -60,7 +60,7 @@ Env overrides DATABUS_HOST DATABUS_PORT
 
 Config fallback: mavlink_out.databus_host / mavlink_out.databus_port
 
-If unresolved from explicit sources, fail fast with a clear error (no sniff/probe auto-discovery).
+If unresolved from explicit sources, fail fast with a clear error (no runtime endpoint discovery).
 
 ## Milestone E — Landing stability features (multi-size tags)
 

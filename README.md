@@ -109,7 +109,7 @@ Priority is `CLI > ENV > config.yaml`.
 - Config fallback: `mavlink_out.databus_host` and `mavlink_out.databus_port`
 
 If DataBus port is not provided from any source, the program fails fast with a clear error.
-Program does not auto-discover DataBus endpoint outside CLI/ENV/config.
+No runtime DataBus endpoint auto-discovery is performed.
 
 ### Dry run / debug
 
