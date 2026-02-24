@@ -206,8 +206,11 @@ def resolve_databus_endpoint(args, cfg):
     if port is None:
         port = int(cfg_port) if cfg_port is not None else None
 
-    if port is None and args.databus_sniff:
-        port = sniff_databus_port(args, cfg)
+    if port is None:
+        discovered = discover_databus_endpoint(args, cfg, allow_probe=args.databus_sniff)
+        if discovered:
+            host = host or discovered[0]
+            port = discovered[1]
 
     if port is None:
         raise ValueError(
@@ -255,33 +258,128 @@ def _candidate_ports(args, cfg) -> list[int]:
     return unique
 
 
-def sniff_databus_port(args, cfg) -> int | None:
-    ports = _candidate_ports(args, cfg)
-    if not ports:
+def _candidate_hosts(args, cfg) -> list[str]:
+    hosts = [
+        args.databus_host,
+        os.getenv("DATABUS_HOST"),
+        cfg["mavlink_out"].get("databus_host"),
+    ]
+    unique: list[str] = []
+    seen = set()
+    for h in hosts:
+        if h and h not in seen:
+            seen.add(h)
+            unique.append(str(h))
+    return unique
+
+
+def _read_databus_from_droneengage_configs() -> tuple[str | None, int | None]:
+    """Best-effort parse of common DroneEngage config locations."""
+    candidate_paths = [
+        Path("/etc/droneengage/config.yaml"),
+        Path("/etc/droneengage/config.yml"),
+        Path("/etc/droneengage/config.json"),
+        Path("/opt/droneengage/config.yaml"),
+        Path("/opt/droneengage/config.yml"),
+        Path("/opt/droneengage/config.json"),
+        Path.home() / ".droneengage" / "config.yaml",
+        Path.home() / ".droneengage" / "config.yml",
+        Path.home() / ".droneengage" / "config.json",
+    ]
+
+    def search(value):
+        if isinstance(value, dict):
+            host = None
+            port = None
+            for k, v in value.items():
+                key = str(k).lower()
+                if key in {"databus_host", "databushost"}:
+                    host = v
+                elif key in {"databus_port", "databusport"}:
+                    port = v
+            if port is not None:
+                return host, port
+
+            for v in value.values():
+                nested = search(v)
+                if nested is not None:
+                    return nested
+        elif isinstance(value, list):
+            for item in value:
+                nested = search(item)
+                if nested is not None:
+                    return nested
         return None
 
-    host = (
-        args.databus_host
-        or os.getenv("DATABUS_HOST")
-        or cfg["mavlink_out"].get("databus_host")
-    )
-    if not host:
+    for path in candidate_paths:
+        if not path.exists() or not path.is_file():
+            continue
+
+        suffix = path.suffix.lower()
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                if suffix == ".json":
+                    parsed = json.load(f)
+                elif suffix in {".yaml", ".yml"}:
+                    parsed = yaml.safe_load(f)
+                else:
+                    continue
+        except (OSError, json.JSONDecodeError, yaml.YAMLError):
+            continue
+
+        discovered = search(parsed)
+        if discovered is None:
+            continue
+
+        host, port = discovered
+        try:
+            port_int = int(port)
+        except (TypeError, ValueError):
+            continue
+
+        host_str = str(host) if host else None
+        return host_str, port_int
+
+    return None, None
+
+
+def probe_databus_port(args, cfg) -> tuple[str, int] | None:
+    ports = _candidate_ports(args, cfg)
+    hosts = _candidate_hosts(args, cfg)
+    if not ports or not hosts:
         return None
 
     probe = json.dumps(
         {"probe": "wingxtra_databus_port_check"}, separators=(",", ":")
     ).encode("utf-8")
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(0.03)
-    try:
-        for p in ports:
+
+    for host in hosts:
+        for port in ports:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(0.08)
             try:
-                sock.sendto(probe, (str(host), int(p)))
-                return int(p)
+                sock.sendto(probe, (str(host), int(port)))
+                _payload, sender = sock.recvfrom(4096)
+                if sender[0] == str(host) and sender[1] == int(port):
+                    return str(host), int(port)
             except OSError:
                 continue
-    finally:
-        sock.close()
+            finally:
+                sock.close()
+
+    return None
+
+
+def discover_databus_endpoint(args, cfg, *, allow_probe: bool) -> tuple[str, int] | None:
+    cfg_host, cfg_port = _read_databus_from_droneengage_configs()
+    if cfg_port is not None:
+        resolved_host = cfg_host or next(iter(_candidate_hosts(args, cfg)), None)
+        if resolved_host:
+            return str(resolved_host), int(cfg_port)
+
+    if allow_probe:
+        return probe_databus_port(args, cfg)
+
     return None
 
 
