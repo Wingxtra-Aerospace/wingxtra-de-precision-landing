@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import configparser
 import json
 import os
 from pathlib import Path
@@ -379,6 +380,22 @@ def discover_databus_endpoint(args, cfg, *, allow_probe: bool) -> tuple[str, int
 
     if allow_probe:
         return probe_databus_port(args, cfg)
+
+    return None
+
+
+def discover_databus_endpoint(args, cfg) -> tuple[str, int] | None:
+    cfg_host, cfg_port = _read_databus_from_droneengage_configs()
+    if cfg_port is not None:
+        resolved_host = cfg_host or next(iter(_candidate_hosts(args, cfg)), None)
+        if resolved_host:
+            return resolved_host, int(cfg_port)
+
+    probed = probe_databus_port(args, cfg)
+    if probed is not None:
+        host = next(iter(_candidate_hosts(args, cfg)), None)
+        if host:
+            return host, int(probed)
 
     return None
 

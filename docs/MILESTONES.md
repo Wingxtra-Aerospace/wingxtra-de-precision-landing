@@ -46,7 +46,7 @@ Must not open /dev/serial0.
 
 ## Milestone D — DataBus port discovery + sniff/probe (no more “assumed ports”)
 
-Status: ⬜ pending
+Status: ✅ in progress branch (criteria implemented)
 
 Done when:
 
