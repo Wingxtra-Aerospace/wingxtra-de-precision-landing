@@ -343,8 +343,8 @@ def _read_databus_from_droneengage_configs() -> tuple[str | None, int | None]:
     return None, None
 
 
-def _local_udp_ports() -> set[int]:
-    ports: set[int] = set()
+def _udp_socket_inodes_by_port() -> dict[int, set[str]]:
+    by_port: dict[int, set[str]] = {}
     for proc_file in ("/proc/net/udp", "/proc/net/udp6"):
         path = Path(proc_file)
         if not path.exists():
@@ -353,19 +353,64 @@ def _local_udp_ports() -> set[int]:
             lines = path.read_text(encoding="utf-8").splitlines()
         except OSError:
             continue
+
         for line in lines[1:]:
             parts = line.split()
-            if len(parts) < 2:
+            if len(parts) < 10:
                 continue
             local_hex = parts[1]
+            inode = parts[9]
             if ":" not in local_hex:
                 continue
             _addr_hex, port_hex = local_hex.rsplit(":", 1)
             try:
-                ports.add(int(port_hex, 16))
+                port = int(port_hex, 16)
             except ValueError:
                 continue
-    return ports
+            by_port.setdefault(port, set()).add(inode)
+
+    return by_port
+
+
+def _process_names_for_socket_inode(inode: str, cache: dict[str, set[str]]) -> set[str]:
+    if inode in cache:
+        return cache[inode]
+
+    names: set[str] = set()
+    proc_root = Path("/proc")
+    for entry in proc_root.iterdir():
+        if not entry.name.isdigit():
+            continue
+        fd_dir = entry / "fd"
+        if not fd_dir.is_dir():
+            continue
+
+        owns_inode = False
+        try:
+            for fd in fd_dir.iterdir():
+                try:
+                    link_target = os.readlink(fd)
+                except OSError:
+                    continue
+                if link_target == f"socket:[{inode}]":
+                    owns_inode = True
+                    break
+        except OSError:
+            continue
+
+        if not owns_inode:
+            continue
+
+        comm_path = entry / "comm"
+        try:
+            comm = comm_path.read_text(encoding="utf-8").strip().lower()
+        except OSError:
+            comm = ""
+        if comm:
+            names.add(comm)
+
+    cache[inode] = names
+    return names
 
 
 def _is_local_host(host: str) -> bool:
@@ -378,19 +423,34 @@ def _discover_local_bound_candidate_port(args, cfg) -> tuple[str, int] | None:
     if not hosts or not ports:
         return None
 
-    local_ports = _local_udp_ports()
+    by_port = _udp_socket_inodes_by_port()
+    preferred_names = ("de_comm", "droneengage", "andruav")
+
+    fallback: tuple[str, int] | None = None
+    inode_name_cache: dict[str, set[str]] = {}
     for host in hosts:
         if not _is_local_host(str(host)):
             continue
         for port in ports:
-            if int(port) in local_ports:
-                return str(host), int(port)
-    return None
+            inodes = by_port.get(int(port), set())
+            if not inodes:
+                continue
+
+            if fallback is None:
+                fallback = (str(host), int(port))
+
+            for inode in inodes:
+                proc_names = _process_names_for_socket_inode(inode, inode_name_cache)
+                if any(any(token in name for token in preferred_names) for name in proc_names):
+                    return str(host), int(port)
+
+    return fallback
+
 
 def probe_databus_port(args, cfg) -> tuple[str, int] | None:
     """
-    Best-effort port probe. Prefers safe local inspection to avoid UDP false positives.
-    For localhost candidates, this checks whether candidate ports are currently bound.
+    Best-effort port probe using local socket-table inspection.
+    Prioritizes candidate ports currently bound by DroneEngage-like processes.
     """
     return _discover_local_bound_candidate_port(args, cfg)
 
