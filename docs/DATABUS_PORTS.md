@@ -20,10 +20,10 @@ Optional helper:
 ## Current baseline behavior
 
 Current code implements CLI/ENV/config precedence and fails fast if no destination host/port is resolved.
-When `databus_port` is missing, it now attempts automatic discovery in this order:
+When `databus_port` is missing, it attempts config-file discovery first, then optional probing only if `--databus-sniff` is provided:
 
 1. Parse common DroneEngage config locations for DataBus host/port.
-2. Probe candidate ports (`--databus-sniff-ports`, `mavlink_out.databus_candidate_ports`, `DATABUS_CANDIDATE_PORTS`).
+2. If `--databus-sniff` is set, probe candidate ports (`--databus-sniff-ports`, `mavlink_out.databus_candidate_ports`, `DATABUS_CANDIDATE_PORTS`).
 3. If still unresolved, fail fast with a clear error.
 
 ## Port discovery/sniff/probe behavior
@@ -32,7 +32,7 @@ To avoid assumed ports, the runtime does best-effort discovery:
 
 1. Parse DroneEngage config files (if present on target system) and extract active DataBus endpoint.
 2. Probe a candidate port set with a lightweight UDP probe payload.
-3. Keep `--databus-sniff` as an explicit alias for probing candidates.
+3. Keep `--databus-sniff` as an explicit opt-in for probing candidates.
 
 ## Operational guidance for Wingxtra now
 
