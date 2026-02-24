@@ -12,24 +12,27 @@ For reliable deployments, use this precedence:
 
 Optional helper:
 
-- `--databus-sniff` to probe candidate ports from:
+- `--databus-sniff` to explicitly probe candidate ports from:
   - `--databus-sniff-ports`
   - `mavlink_out.databus_candidate_ports`
   - `DATABUS_CANDIDATE_PORTS`
 
 ## Current baseline behavior
 
-Current code implements CLI/ENV/config precedence and fails fast if no destination port is provided.
-It also supports optional `--databus-sniff` probing to infer a candidate port.
+Current code implements CLI/ENV/config precedence and fails fast if no destination host/port is resolved.
+When `databus_port` is missing, it now attempts automatic discovery in this order:
 
-## Port discovery/sniff/probe plan
+1. Parse common DroneEngage config locations for DataBus host/port.
+2. Probe candidate ports (`--databus-sniff-ports`, `mavlink_out.databus_candidate_ports`, `DATABUS_CANDIDATE_PORTS`).
+3. If still unresolved, fail fast with a clear error.
 
-To avoid assumed ports in the future implementation:
+## Port discovery/sniff/probe behavior
+
+To avoid assumed ports, the runtime does best-effort discovery:
 
 1. Parse DroneEngage config files (if present on target system) and extract active DataBus endpoint.
-2. Probe a candidate port set with a lightweight handshake.
-3. Add `--databus-sniff` mode to watch UDP traffic and infer active DataBus endpoint.
-4. Record resolved endpoint in logs before starting landing loop.
+2. Probe a candidate port set with a lightweight UDP probe payload.
+3. Keep `--databus-sniff` as an explicit alias for probing candidates.
 
 ## Operational guidance for Wingxtra now
 
