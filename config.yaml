@@ -5,16 +5,21 @@ camera:
   fps: 30
 
 landing_target:
-  layout_json: "landing-target.json"
-  april_tag_family: "tag36h11"   # from your json
-  opencv_dictionary: "DICT_APRILTAG_36h11"
-  target_num: 0                  # from your json (also in file)
+  layout_json: landing-target.json
+  april_tag_family: tag36h11
+  opencv_dictionary: DICT_APRILTAG_36h11
+  target_num: 0
 
 mavlink_out:
-  # DroneEngage-first: send INTERNAL MAVLink via DroneEngage DataBus (single FC port, no serial contention)
-  mode: "droneengage_databus"
-  # The fields below are for Codex to wire to your actual DroneEngage databus config:
-  databus_host: "127.0.0.1"
+  # DroneEngage-first: send INTERNAL MAVLink via DroneEngage DataBus
+  # (single FC port, no serial contention)
+  mode: droneengage_databus
+  # `udp_raw`: send MAVLink2 bytes directly
+  # `udp_json`: send {topic, encoding=base64, payload}
+  databus_transport: udp_raw
+  internal_mavlink_topic: INTERNAL_MAVLINK
+  # Wire these to your DroneEngage DataBus config:
+  databus_host: 127.0.0.1
   databus_port: 60000
 
 mavlink:
