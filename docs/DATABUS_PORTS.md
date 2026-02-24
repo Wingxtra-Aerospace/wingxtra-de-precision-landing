@@ -4,15 +4,15 @@
 
 For reliable deployments, use this precedence:
 
-1. CLI flags (future): `--databus-host`, `--databus-port`
-2. Environment variables (future): `DATABUS_HOST`, `DATABUS_PORT`
+1. CLI flags: `--databus-host`, `--databus-port`
+2. Environment variables: `DATABUS_HOST`, `DATABUS_PORT`
 3. `config.yaml` values:
    - `mavlink_out.databus_host`
    - `mavlink_out.databus_port`
 
 ## Current baseline behavior
 
-Current code reads host/port from `config.yaml` and uses those values to send INTERNAL MAVLink via DataBus framing.
+Current code implements CLI/ENV/config precedence and fails fast if no destination port is provided.
 
 ## Port discovery/sniff/probe plan
 
@@ -25,6 +25,7 @@ To avoid assumed ports in the future implementation:
 
 ## Operational guidance for Wingxtra now
 
-- Set `mavlink_out.databus_host` and `mavlink_out.databus_port` explicitly per drone.
+- Set `mavlink_out.databus_host` and `mavlink_out.databus_port` explicitly per drone,
+  or pass host/port at launch via CLI/ENV.
 - Keep values under configuration management per aircraft.
 - Do not rely on default assumptions across mixed fleets.

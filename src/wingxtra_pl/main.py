@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import time
 import yaml
@@ -94,7 +95,50 @@ def parse_args():
         action="store_true",
         help="When used with --debug-overlay, periodically save debug frames to debug_frames/",
     )
+    parser.add_argument(
+        "--databus-host",
+        type=str,
+        default=None,
+        help="DroneEngage DataBus host override (priority: CLI > ENV > config)",
+    )
+    parser.add_argument(
+        "--databus-port",
+        type=int,
+        default=None,
+        help="DroneEngage DataBus port override (priority: CLI > ENV > config)",
+    )
     return parser.parse_args()
+
+
+def resolve_databus_endpoint(args, cfg):
+    cfg_host = cfg["mavlink_out"].get("databus_host")
+    cfg_port = cfg["mavlink_out"].get("databus_port")
+
+    host = args.databus_host
+    if not host:
+        host = os.getenv("DATABUS_HOST") or cfg_host
+
+    env_port_raw = os.getenv("DATABUS_PORT")
+    env_port = int(env_port_raw) if env_port_raw else None
+    port = args.databus_port if args.databus_port is not None else env_port
+    if port is None:
+        port = int(cfg_port) if cfg_port is not None else None
+
+    if port is None:
+        raise ValueError(
+            "DataBus destination port is not set. Configure one using either "
+            "--databus-port, environment variable DATABUS_PORT, or "
+            "config.yaml:mavlink_out.databus_port"
+        )
+
+    if not host:
+        raise ValueError(
+            "DataBus destination host is not set. Configure one using either "
+            "--databus-host, environment variable DATABUS_HOST, or "
+            "config.yaml:mavlink_out.databus_host"
+        )
+
+    return str(host), int(port)
 
 
 def main():
@@ -128,9 +172,10 @@ def main():
 
     out = None
     if not args.dry_run:
+        databus_host, databus_port = resolve_databus_endpoint(args, cfg)
         out = DroneEngageDatabusInternalMavlinkOut(
-            host=str(cfg["mavlink_out"]["databus_host"]),
-            port=int(cfg["mavlink_out"]["databus_port"]),
+            host=databus_host,
+            port=databus_port,
             internal_mavlink_cmd=str(
                 cfg["mavlink_out"].get("internal_mavlink_cmd", "m")
             ),

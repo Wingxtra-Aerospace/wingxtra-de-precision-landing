@@ -18,7 +18,8 @@ mavlink_out:
   internal_mavlink_cmd: m
   # Wire these to your DroneEngage DataBus config:
   databus_host: 127.0.0.1
-  databus_port: 60000
+  # Must be set per deployment (CLI/env/config). Keep null in repository defaults.
+  databus_port: null
 
 mavlink:
   send_hz: 10

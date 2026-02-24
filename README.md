@@ -76,6 +76,16 @@ physical FC serial port.
 python3 -m src.wingxtra_pl.main
 ```
 
+### DataBus host/port overrides
+
+Priority is `CLI > ENV > config.yaml`.
+
+- CLI: `--databus-host` and `--databus-port`
+- ENV: `DATABUS_HOST` and `DATABUS_PORT`
+- Config fallback: `mavlink_out.databus_host` and `mavlink_out.databus_port`
+
+If DataBus port is not provided from any source, the program fails fast with a clear error.
+
 ### Dry run / debug
 
 ```bash
