@@ -271,6 +271,14 @@ def main():
     if args.dry_run:
         print("Running in --dry-run mode: no MAVLink output will be sent")
 
+    if args.debug_overlay and args.save_debug_frames:
+        Path("debug_frames").mkdir(parents=True, exist_ok=True)
+    elif args.save_debug_frames:
+        print("--save-debug-frames has no effect without --debug-overlay")
+
+    if args.dry_run:
+        print("Running in --dry-run mode: no MAVLink output will be sent")
+
     # MAVLink identity for the companion/plugin
     SYSID = 42
     COMPID = 191
