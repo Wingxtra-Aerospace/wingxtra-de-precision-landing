@@ -1,0 +1,1 @@
+TYPE_AndruavMessage_INTERNAL_MAVLINK = 6504

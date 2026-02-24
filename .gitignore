@@ -26,3 +26,6 @@ tmp/
 camera.yaml
 camera*.yaml
 calibration/
+calib_*.png
+captures/
+debug_frames/
