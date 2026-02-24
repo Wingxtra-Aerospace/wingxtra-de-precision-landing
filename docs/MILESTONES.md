@@ -44,9 +44,9 @@ Must use binary message format (sendBMSG) as per DataBus library.
 
 Must not open /dev/serial0.
 
-## Milestone D — DataBus port discovery + sniff/probe (no more “assumed ports”)
+## Milestone D — Explicit DataBus endpoint configuration (no assumptions)
 
-Status: ⬜ pending
+Status: ✅ in progress branch (criteria implemented)
 
 Done when:
 
@@ -58,13 +58,9 @@ CLI --databus-host --databus-port
 
 Env overrides DATABUS_HOST DATABUS_PORT
 
-If not provided → auto-discover:
+Config fallback: mavlink_out.databus_host / mavlink_out.databus_port
 
-parse DroneEngage configs if present
-
-probe a candidate list
-
---databus-sniff to infer active port from UDP traffic
+If unresolved from explicit sources, fail fast with a clear error (no runtime endpoint discovery).
 
 ## Milestone E — Landing stability features (multi-size tags)
 
