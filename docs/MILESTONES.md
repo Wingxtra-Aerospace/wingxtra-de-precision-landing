@@ -1,65 +1,81 @@
-# Wingxtra Precision Landing – Project Milestones
+# Wingxtra Precision Landing Milestones
 
-## Milestone A – Safety & Local Validation (DONE)
-Goal: Code runs safely without hardware side effects.
-
-Done when:
-- Program fails fast if camera.yaml is missing.
-- Program fails fast if calibration resolution mismatches config.
-- --dry-run mode works (no MAVLink output).
-- --debug-overlay shows detected tag IDs, pose, FPS.
-- No FC serial port is ever opened.
-
----
-
-## Milestone B – Offline / Hardware-Free Testing
-Goal: Codex can validate logic without Raspberry Pi or camera.
+## Milestone A — Repo is clean, runnable, and safe
 
 Done when:
-- Program supports:
-  --video <file>
-  --images <dir>
-- AprilTag detection + pose estimation work on prerecorded frames.
-- Debug overlays can be saved to disk.
-- No picamera2 import required in offline mode.
 
----
+config.yaml is valid multi-line YAML (not one-liner).
 
-## Milestone C – DroneEngage DataBus INTERNAL MAVLink Output
-Goal: Send LANDING_TARGET via DroneEngage without touching serial.
+main.py no longer contains the :contentReference[...] artifact.
 
-Done when:
-- DroneEngage DataBus client is integrated.
-- Message type TYPE_AndruavMessage_INTERNAL_MAVLINK (6504) is used.
-- Payload is binary MAVLink2 packet.
-- Sender is UDP send-only (no bind, no listen).
-- Destination host/port are configurable (CLI/env/config).
-- No assumption of 6000/60000 anywhere in code.
+python -m py_compile succeeds on all modules.
 
----
+camera.yaml missing → program fails fast with a clear message (already merged by you).
 
-## Milestone D – Stability for Multi-Size Tags
-Goal: Landing remains stable as tag visibility changes.
+## Milestone B — Offline test mode (no Pi/camera needed)
 
 Done when:
-- Reprojection error is computed and gated.
-- EMA smoothing is applied to x/y/z.
-- Stale timeout stops LANDING_TARGET if target is lost.
-- Logs include: used_ids, num_markers_used, reprojection error.
 
----
+Add CLI support to run on prerecorded frames:
 
-## Milestone E – Deployment & Operations
-Goal: Wingxtra can deploy safely on every drone.
+--video path.mp4 OR --images path/dir
+
+Dry-run + debug overlay work with file input:
+
+prints IDs, num_markers_used, x/y/z, FPS
+
+can save snapshots
+
+## Milestone C — DataBus integration (no serial, no FC port)
 
 Done when:
-- systemd service template exists.
-- install/run scripts exist.
-- README includes per-drone setup checklist.
-- WINGXTRA_NOTES.md exists with calibration policy.
 
----
+Implement DroneEngageDatabusInternalMavlinkOut.send_landing_target() using DroneEngage DataBus library.
 
-## Project Complete
-The project is complete when Milestones A–E are all satisfied.
-Hardware flight testing is explicitly out of scope for completion.
+Must publish TYPE_AndruavMessage_INTERNAL_MAVLINK = 6504.
+
+Must use binary message format (sendBMSG) as per DataBus library.
+
+Must not open /dev/serial0.
+
+## Milestone D — DataBus port discovery + sniff/probe (no more “assumed ports”)
+
+Done when:
+
+No hardcoded DataBus port (not 6000/60000)
+
+Support:
+
+CLI --databus-host --databus-port
+
+Env overrides DATABUS_HOST DATABUS_PORT
+
+If not provided → auto-discover:
+
+parse DroneEngage configs if present
+
+probe a candidate list
+
+--databus-sniff to infer active port from UDP traffic
+
+## Milestone E — Landing stability features (multi-size tags)
+
+Done when:
+
+Adds reprojection error computation + gating
+
+Adds EMA smoothing (configurable)
+
+Adds stale timeout: if target unseen for N ms → stop sending LANDING_TARGET
+
+## Milestone F — Deployable on Wingxtra drones
+
+Done when:
+
+Provide systemd/wingxtra-precision-landing.service template
+
+Provide scripts/install.sh and scripts/run.sh
+
+README: “per-drone setup” checklist + preflight checklist
+
+Definition of “Project Complete” = Milestones A–F all .

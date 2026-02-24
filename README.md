@@ -82,6 +82,14 @@ python3 -m src.wingxtra_pl.main
 python3 -m src.wingxtra_pl.main --dry-run --debug-overlay
 ```
 
+## Quick code health check
+
+Run this before deployment to ensure Python modules parse cleanly:
+
+```bash
+python -m py_compile $(rg --files src tools -g '*.py')
+```
+
 ## Notes
 - OpenCV dictionary must match target family: `tag36h11 => DICT_APRILTAG_36h11`.
 - If axes are swapped (vehicle moves wrong), adjust `frames.cam_to_body_rpy_deg` in `config.yaml`.
