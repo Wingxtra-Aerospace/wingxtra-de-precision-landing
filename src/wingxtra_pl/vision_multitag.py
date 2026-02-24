@@ -23,7 +23,13 @@ class MultiTagPoseEstimator:
     For AprilTag 36h11: opencv_dictionary = "DICT_APRILTAG_36h11"
     """
 
-    def __init__(self, cfg: DetectorConfig, layout: LandingTargetLayout, camera_matrix: np.ndarray, dist_coeffs: np.ndarray):
+    def __init__(
+        self,
+        cfg: DetectorConfig,
+        layout: LandingTargetLayout,
+        camera_matrix: np.ndarray,
+        dist_coeffs: np.ndarray,
+    ):
         self.cfg = cfg
         self.layout = layout
         self.K = camera_matrix
@@ -71,6 +77,11 @@ class MultiTagPoseEstimator:
         if not ok:
             return None
 
+        projected, _ = cv2.projectPoints(obj_pts_all, rvec, tvec, self.K, self.dist)
+        proj2d = projected.reshape(-1, 2)
+        err = img_pts_all - proj2d
+        reproj_rmse_px = float(np.sqrt(np.mean(np.sum(err * err, axis=1))))
+
         tvec = tvec.reshape(3).astype(float)
 
         # Optional angles (useful for debugging)
@@ -80,9 +91,10 @@ class MultiTagPoseEstimator:
 
         return {
             "rvec": rvec,
-            "tvec": tvec,                 # TARGET origin in camera frame
+            "tvec": tvec,  # TARGET origin in camera frame
             "angle_x": angle_x,
             "angle_y": angle_y,
             "used_ids": used_ids,
             "num_markers_used": len(used_ids),
+            "reproj_rmse_px": reproj_rmse_px,
         }
