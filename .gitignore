@@ -1,0 +1,28 @@
+# ---- OS / Editor ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# ---- Logs / runtime ----
+*.log
+logs/
+tmp/
+.cache/
+
+# ---- Wingxtra drone-specific calibration (DO NOT COMMIT) ----
+camera.yaml
+camera*.yaml
+calibration/
