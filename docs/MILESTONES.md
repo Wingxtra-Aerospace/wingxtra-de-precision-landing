@@ -46,7 +46,7 @@ Must not open /dev/serial0.
 
 ## Milestone D — Explicit DataBus endpoint configuration (no assumptions)
 
-Status: ⬜ pending
+Status: ✅ in progress branch (criteria implemented)
 
 Done when:
 
