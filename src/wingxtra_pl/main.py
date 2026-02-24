@@ -194,13 +194,6 @@ def resolve_databus_endpoint(args, cfg):
         port = int(cfg_port) if cfg_port is not None else None
 
     if port is None:
-        discovered = discover_databus_endpoint()
-        if discovered:
-            if not host and discovered[0]:
-                host = discovered[0]
-            port = discovered[1]
-
-    if port is None:
         raise ValueError(
             "DataBus destination port is not set. Configure one using either "
             "--databus-port, environment variable DATABUS_PORT, or "
@@ -217,81 +210,6 @@ def resolve_databus_endpoint(args, cfg):
     return str(host), int(port)
 
 
-def _read_databus_from_droneengage_configs() -> tuple[str | None, int | None]:
-    """Best-effort parse of common DroneEngage config locations."""
-    candidate_paths = [
-        Path("/etc/droneengage/config.yaml"),
-        Path("/etc/droneengage/config.yml"),
-        Path("/etc/droneengage/config.json"),
-        Path("/opt/droneengage/config.yaml"),
-        Path("/opt/droneengage/config.yml"),
-        Path("/opt/droneengage/config.json"),
-        Path.home() / ".droneengage" / "config.yaml",
-        Path.home() / ".droneengage" / "config.yml",
-        Path.home() / ".droneengage" / "config.json",
-    ]
-
-    def search(value):
-        if isinstance(value, dict):
-            host = None
-            port = None
-            for k, v in value.items():
-                key = str(k).lower()
-                if key in {"databus_host", "databushost"}:
-                    host = v
-                elif key in {"databus_port", "databusport"}:
-                    port = v
-            if port is not None:
-                return host, port
-
-            for v in value.values():
-                nested = search(v)
-                if nested is not None:
-                    return nested
-        elif isinstance(value, list):
-            for item in value:
-                nested = search(item)
-                if nested is not None:
-                    return nested
-        return None
-
-    for path in candidate_paths:
-        if not path.exists() or not path.is_file():
-            continue
-
-        suffix = path.suffix.lower()
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                if suffix == ".json":
-                    parsed = json.load(f)
-                elif suffix in {".yaml", ".yml"}:
-                    parsed = yaml.safe_load(f)
-                else:
-                    continue
-        except (OSError, json.JSONDecodeError, yaml.YAMLError):
-            continue
-
-        discovered = search(parsed)
-        if discovered is None:
-            continue
-
-        host, port = discovered
-        try:
-            port_int = int(port)
-        except (TypeError, ValueError):
-            continue
-
-        host_str = str(host) if host else None
-        return host_str, port_int
-
-    return None, None
-
-
-def discover_databus_endpoint() -> tuple[str | None, int] | None:
-    cfg_host, cfg_port = _read_databus_from_droneengage_configs()
-    if cfg_port is None:
-        return None
-    return cfg_host, int(cfg_port)
 
 
 def main():

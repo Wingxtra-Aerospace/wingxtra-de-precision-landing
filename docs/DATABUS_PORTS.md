@@ -13,11 +13,11 @@ For reliable deployments, use this precedence:
 ## Current baseline behavior
 
 Current code implements CLI/ENV/config precedence and fails fast if no destination host/port is resolved.
-When `databus_port` is missing, it attempts config-file discovery from common DroneEngage locations. If unresolved, it fails fast with a clear error.
+When `databus_port` is missing, it fails fast with a clear error.
 
 ## Port discovery behavior
 
-To avoid assumed ports, the runtime does best-effort discovery by parsing DroneEngage config files (if present on target system) and extracting explicit `databus_host` / `databus_port` values.
+No runtime auto-discovery is performed. Endpoint resolution is explicit (CLI/ENV/config only).
 
 ## Operational guidance for Wingxtra now
 
