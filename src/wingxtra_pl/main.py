@@ -372,11 +372,8 @@ def _udp_socket_inodes_by_port() -> dict[int, set[str]]:
     return by_port
 
 
-def _process_names_for_socket_inode(inode: str, cache: dict[str, set[str]]) -> set[str]:
-    if inode in cache:
-        return cache[inode]
-
-    names: set[str] = set()
+def _socket_inode_process_names() -> dict[str, set[str]]:
+    inode_to_names: dict[str, set[str]] = {}
     proc_root = Path("/proc")
     for entry in proc_root.iterdir():
         if not entry.name.isdigit():
@@ -385,32 +382,27 @@ def _process_names_for_socket_inode(inode: str, cache: dict[str, set[str]]) -> s
         if not fd_dir.is_dir():
             continue
 
-        owns_inode = False
+        comm = ""
+        try:
+            comm = (entry / "comm").read_text(encoding="utf-8").strip().lower()
+        except OSError:
+            pass
+        if not comm:
+            continue
+
         try:
             for fd in fd_dir.iterdir():
                 try:
                     link_target = os.readlink(fd)
                 except OSError:
                     continue
-                if link_target == f"socket:[{inode}]":
-                    owns_inode = True
-                    break
+                if link_target.startswith("socket:[") and link_target.endswith("]"):
+                    inode = link_target[8:-1]
+                    inode_to_names.setdefault(inode, set()).add(comm)
         except OSError:
             continue
 
-        if not owns_inode:
-            continue
-
-        comm_path = entry / "comm"
-        try:
-            comm = comm_path.read_text(encoding="utf-8").strip().lower()
-        except OSError:
-            comm = ""
-        if comm:
-            names.add(comm)
-
-    cache[inode] = names
-    return names
+    return inode_to_names
 
 
 def _is_local_host(host: str) -> bool:
@@ -425,9 +417,8 @@ def _discover_local_bound_candidate_port(args, cfg) -> tuple[str, int] | None:
 
     by_port = _udp_socket_inodes_by_port()
     preferred_names = ("de_comm", "droneengage", "andruav")
+    inode_to_names = _socket_inode_process_names()
 
-    fallback: tuple[str, int] | None = None
-    inode_name_cache: dict[str, set[str]] = {}
     for host in hosts:
         if not _is_local_host(str(host)):
             continue
@@ -436,15 +427,12 @@ def _discover_local_bound_candidate_port(args, cfg) -> tuple[str, int] | None:
             if not inodes:
                 continue
 
-            if fallback is None:
-                fallback = (str(host), int(port))
-
             for inode in inodes:
-                proc_names = _process_names_for_socket_inode(inode, inode_name_cache)
+                proc_names = inode_to_names.get(inode, set())
                 if any(any(token in name for token in preferred_names) for name in proc_names):
                     return str(host), int(port)
 
-    return fallback
+    return None
 
 
 def probe_databus_port(args, cfg) -> tuple[str, int] | None:
