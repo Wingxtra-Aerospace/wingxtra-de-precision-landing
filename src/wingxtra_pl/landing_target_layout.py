@@ -34,7 +34,6 @@ class LandingTargetLayout:
             ]
           }
 
-        object_points are already in meters in a shared target coordinate frame. :contentReference[oaicite:3]{index=3}
         """
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -53,6 +52,8 @@ class LandingTargetLayout:
                 raise ValueError(f"Marker {mid}: expected 4 object_points corners")
 
             corners_xyz = np.array(obj, dtype=float).reshape(4, 3)
-            markers[mid] = MarkerDef(marker_id=mid, family=family, corners_xyz=corners_xyz)
+            markers[mid] = MarkerDef(
+                marker_id=mid, family=family, corners_xyz=corners_xyz
+            )
 
         return LandingTargetLayout(target_num=target_num, markers=markers)

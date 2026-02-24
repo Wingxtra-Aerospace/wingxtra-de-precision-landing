@@ -15,4 +15,6 @@ class DroneEngageDatabusInternalMavlinkOut(MavlinkOut):
     def send_landing_target(self, mavlink2_packet: bytes) -> None:
         # TODO(Codex): Publish mavlink2_packet as INTERNAL MAVLINK via DataBus.
         # This plugin MUST NOT open /dev/serial0.
-        raise NotImplementedError("Wire this to DroneEngage DataBus INTERNAL_MAVLINK publish")
+        raise NotImplementedError(
+            "Wire this to DroneEngage DataBus INTERNAL_MAVLINK publish"
+        )

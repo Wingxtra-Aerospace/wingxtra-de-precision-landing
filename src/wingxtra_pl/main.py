@@ -60,7 +60,7 @@ def build_landing_target_packet(
         frame=8,  # MAV_FRAME_BODY_NED
         angle_x=float(angle_x),
         angle_y=float(angle_y),
-        distance=0.0,     # not used when position_valid=1
+        distance=0.0,  # not used when position_valid=1
         size_x=0.0,
         size_y=0.0,
         x=float(x_m),
@@ -76,7 +76,9 @@ def build_landing_target_packet(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Wingxtra DroneEngage precision landing")
+    parser = argparse.ArgumentParser(
+        description="Wingxtra DroneEngage precision landing"
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -99,8 +101,10 @@ def main():
     args = parse_args()
     cfg = yaml.safe_load(open("config.yaml", "r", encoding="utf-8"))
 
-    layout = LandingTargetLayout.from_landmark_json(cfg["landing_target"]["layout_json"])
-    # sanity: your file says tag36h11 and multiple ids, plus target_num. :contentReference[oaicite:4]{index=4}
+    layout = LandingTargetLayout.from_landmark_json(
+        cfg["landing_target"]["layout_json"]
+    )
+
     target_num = int(cfg["landing_target"].get("target_num", layout.target_num))
 
     K, dist, calib_w, calib_h = load_camera_yaml("camera.yaml")
@@ -142,7 +146,9 @@ def main():
 
     # Camera setup (IMX219 via libcamera / Picamera2)
     picam2 = Picamera2()
-    video_config = picam2.create_video_configuration(main={"format": "RGB888", "size": (w, h)})
+    video_config = picam2.create_video_configuration(
+        main={"format": "RGB888", "size": (w, h)}
+    )
     picam2.configure(video_config)
     picam2.start()
 
@@ -191,7 +197,13 @@ def main():
 
             print(
                 "used_ids=%s markers=%d x=%.3f y=%.3f z=%.3f"
-                % (res["used_ids"], res["num_markers_used"], float(body[0]), float(body[1]), float(body[2]))
+                % (
+                    res["used_ids"],
+                    res["num_markers_used"],
+                    float(body[0]),
+                    float(body[1]),
+                    float(body[2]),
+                )
             )
 
             # Forward to DroneEngage (single FC link)
@@ -217,7 +229,13 @@ def main():
                     f"z: {float(body[2]):.3f} m",
                 ]
             else:
-                lines = ["used_ids: []", "num_markers_used: 0", "x: n/a", "y: n/a", "z: n/a"]
+                lines = [
+                    "used_ids: []",
+                    "num_markers_used: 0",
+                    "x: n/a",
+                    "y: n/a",
+                    "z: n/a",
+                ]
 
             lines.append(f"FPS: {fps:.1f}")
             if args.dry_run:
@@ -225,7 +243,16 @@ def main():
 
             for i, line in enumerate(lines):
                 y = 30 + i * 28
-                cv2.putText(overlay, line, (15, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
+                cv2.putText(
+                    overlay,
+                    line,
+                    (15, y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0, 255, 0),
+                    2,
+                    cv2.LINE_AA,
+                )
 
             cv2.imshow("Wingxtra Precision Landing Debug", overlay)
             key = cv2.waitKey(1) & 0xFF
