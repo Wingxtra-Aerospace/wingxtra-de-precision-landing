@@ -54,9 +54,11 @@ DroneEngage owns the physical FC connection. This project outputs **INTERNAL MAV
 `LANDING_TARGET` packets to DroneEngage's internal bus endpoint and never opens a
 physical FC serial port.
 
-- `databus_transport: udp_raw` sends raw MAVLink2 bytes (default).
-- `databus_transport: udp_json` sends a JSON envelope with
-  `topic/internal_mavlink_topic` + base64 payload.
+- Uses DataBus-like `sendBMSG` framing:
+  - JSON metadata header including `andruav_message_id=6504`
+  - a NULL separator byte (`\x00`)
+  - raw MAVLink2 packet bytes
+- `mavlink_out.internal_mavlink_cmd` configures the BMSG message-cmd string.
 
 ## Setup (on the DroneEngage Pi)
 1. Install dependencies:

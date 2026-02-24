@@ -131,9 +131,8 @@ def main():
         out = DroneEngageDatabusInternalMavlinkOut(
             host=str(cfg["mavlink_out"]["databus_host"]),
             port=int(cfg["mavlink_out"]["databus_port"]),
-            transport=str(cfg["mavlink_out"].get("databus_transport", "udp_raw")),
-            topic=str(
-                cfg["mavlink_out"].get("internal_mavlink_topic", "INTERNAL_MAVLINK")
+            internal_mavlink_cmd=str(
+                cfg["mavlink_out"].get("internal_mavlink_cmd", "m")
             ),
         )
 

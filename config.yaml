@@ -14,10 +14,8 @@ mavlink_out:
   # DroneEngage-first: send INTERNAL MAVLink via DroneEngage DataBus
   # (single FC port, no serial contention)
   mode: droneengage_databus
-  # `udp_raw`: send MAVLink2 bytes directly
-  # `udp_json`: send {topic, encoding=base64, payload}
-  databus_transport: udp_raw
-  internal_mavlink_topic: INTERNAL_MAVLINK
+  # sendBMSG metadata command for internal MAVLink payload (configurable)
+  internal_mavlink_cmd: m
   # Wire these to your DroneEngage DataBus config:
   databus_host: 127.0.0.1
   databus_port: 60000
