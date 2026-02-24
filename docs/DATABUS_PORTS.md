@@ -35,6 +35,84 @@ In real deployments:
 - multiple DroneEngage instances may exist
 - system firewalls may redirect traffic
 
+Why We Do NOT Implement Sniffing
+
+Sniffing (raw sockets, CAP_NET_RAW) was considered and rejected because:
+
+requires root or special capabilities
+
+fragile across kernels and interfaces
+
+unnecessary for a send-only publisher
+
+adds risk to flight-critical software
+
+Sniffing is acceptable for manual debugging, not for production flight systems.
+
+How Wingxtra Determines the Correct Port (Operational Guidance)
+
+To find the active DataBus port on a drone:
+
+Option 1 – Check DroneEngage configuration
+
+Look for de_comm / communication config files in:
+
+/etc/droneengage/
+
+/opt/droneengage/
+
+deployment .env files
+
+systemd service files
+
+Option 2 – Check running sockets
+sudo ss -lunp | grep de_comm
+
+or
+
+sudo netstat -lunp | grep de_comm
+Option 3 – Ask DroneEngage maintainers
+
+Preferred for fleet deployments.
+
+Once known:
+
+set the port via ENV, CLI, or config.yaml
+
+keep it consistent per deployment
+
+Example: Recommended Production Setup
+config.yaml
+mavlink_out:
+  mode: droneengage_databus
+  databus_host: 127.0.0.1
+  databus_port: 61234
+systemd override
+Environment=DATABUS_PORT=61234
+Summary (Read This First)
+
+❌ No hardcoded ports
+
+❌ No sniffing
+
+❌ No UDP bind/listen
+
+✅ Send-only UDP
+
+✅ Destination configured per deployment
+
+✅ Fail fast if misconfigured
+
+This guarantees:
+
+zero port conflicts
+
+predictable behavior
+
+safe coexistence with DroneEngage
+
+This policy is intentional and must not be “simplified” in future changes.
+
 Wingxtra has already encountered failures caused by assuming these ports.
 
 **Therefore: no default port is baked into code.**
