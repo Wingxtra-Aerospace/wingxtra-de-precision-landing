@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 from pathlib import Path
-import socket
 import time
 from typing import Callable, Iterator
 import yaml
@@ -111,17 +109,6 @@ def parse_args():
         help="DroneEngage DataBus port override (priority: CLI > ENV > config)",
     )
     parser.add_argument(
-        "--databus-sniff",
-        action="store_true",
-        help="Infer active DataBus UDP port by probing/sniffing candidates",
-    )
-    parser.add_argument(
-        "--databus-sniff-ports",
-        type=str,
-        default=None,
-        help="Comma-separated UDP ports for --databus-sniff (e.g. '60000,60001')",
-    )
-    parser.add_argument(
         "--video",
         type=str,
         default=None,
@@ -192,7 +179,16 @@ def build_frame_source(
     return gen(), picam2.stop
 
 
-def resolve_databus_endpoint(args, cfg):
+def _parse_port(value, source: str) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid DataBus port from {source}: {value!r}") from exc
+
+
+def resolve_databus_endpoint(args, cfg) -> tuple[str, int]:
     cfg_host = cfg["mavlink_out"].get("databus_host")
     cfg_port = cfg["mavlink_out"].get("databus_port")
 
@@ -201,19 +197,17 @@ def resolve_databus_endpoint(args, cfg):
         host = os.getenv("DATABUS_HOST") or cfg_host
 
     env_port_raw = os.getenv("DATABUS_PORT")
-    env_port = int(env_port_raw) if env_port_raw else None
+    env_port = _parse_port(env_port_raw, "environment variable DATABUS_PORT")
     port = args.databus_port if args.databus_port is not None else env_port
     if port is None:
-        port = int(cfg_port) if cfg_port is not None else None
-
-    if port is None and args.databus_sniff:
-        port = sniff_databus_port(args, cfg)
+        port = _parse_port(cfg_port, "config.yaml:mavlink_out.databus_port")
 
     if port is None:
         raise ValueError(
             "DataBus destination port is not set. Configure one using either "
             "--databus-port, environment variable DATABUS_PORT, or "
-            "config.yaml:mavlink_out.databus_port. Optionally use --databus-sniff"
+            "config.yaml:mavlink_out.databus_port. "
+            "No runtime endpoint discovery is performed."
         )
 
     if not host:
@@ -224,65 +218,6 @@ def resolve_databus_endpoint(args, cfg):
         )
 
     return str(host), int(port)
-
-
-def _candidate_ports(args, cfg) -> list[int]:
-    ports: list[int] = []
-
-    if args.databus_sniff_ports:
-        for p in args.databus_sniff_ports.split(","):
-            p = p.strip()
-            if p:
-                ports.append(int(p))
-
-    cfg_candidates = cfg["mavlink_out"].get("databus_candidate_ports", [])
-    for p in cfg_candidates:
-        ports.append(int(p))
-
-    env_candidates = os.getenv("DATABUS_CANDIDATE_PORTS", "")
-    if env_candidates:
-        for p in env_candidates.split(","):
-            p = p.strip()
-            if p:
-                ports.append(int(p))
-
-    seen = set()
-    unique = []
-    for p in ports:
-        if p not in seen:
-            seen.add(p)
-            unique.append(p)
-    return unique
-
-
-def sniff_databus_port(args, cfg) -> int | None:
-    ports = _candidate_ports(args, cfg)
-    if not ports:
-        return None
-
-    host = (
-        args.databus_host
-        or os.getenv("DATABUS_HOST")
-        or cfg["mavlink_out"].get("databus_host")
-    )
-    if not host:
-        return None
-
-    probe = json.dumps(
-        {"probe": "wingxtra_databus_port_check"}, separators=(",", ":")
-    ).encode("utf-8")
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(0.03)
-    try:
-        for p in ports:
-            try:
-                sock.sendto(probe, (str(host), int(p)))
-                return int(p)
-            except OSError:
-                continue
-    finally:
-        sock.close()
-    return None
 
 
 def main():
