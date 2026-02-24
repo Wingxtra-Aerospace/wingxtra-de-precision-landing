@@ -60,6 +60,12 @@ physical FC serial port.
   - raw MAVLink2 packet bytes
 - `mavlink_out.internal_mavlink_cmd` configures the BMSG message-cmd string.
 
+Validate payload format locally with:
+
+```bash
+python tools/fake_databus_rx.py --port 60000
+```
+
 ## Setup (on the DroneEngage Pi)
 1. Install dependencies:
    - Raspberry Pi OS + libcamera

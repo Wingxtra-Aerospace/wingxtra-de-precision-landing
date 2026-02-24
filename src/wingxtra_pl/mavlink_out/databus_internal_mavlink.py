@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
-import socket
-from dataclasses import dataclass
-
+from ..databus.messages import TYPE_AndruavMessage_INTERNAL_MAVLINK
+from ..databus.module import CModule, UdpSendClient
 from .base import MavlinkOut
 
 
@@ -77,18 +75,14 @@ class DroneEngageDatabusInternalMavlinkOut(MavlinkOut):
         port: int,
         *,
         internal_mavlink_cmd: str = "m",
-        andruav_message_id: int = TYPE_ANDRUAVMESSAGE_INTERNAL_MAVLINK,
-        protocol_keys: DataBusProtocolKeys | None = None,
+        andruav_message_id: int = TYPE_AndruavMessage_INTERNAL_MAVLINK,
     ):
         self.host = host
         self.port = int(port)
         self.internal_mavlink_cmd = str(internal_mavlink_cmd)
         self.andruav_message_id = int(andruav_message_id)
 
-        self._module = CModule(
-            _UdpClient(self.host, self.port),
-            protocol_keys if protocol_keys is not None else DataBusProtocolKeys(),
-        )
+        self._module = CModule(UdpSendClient(self.host, self.port))
 
     def send_landing_target(self, mavlink2_packet: bytes) -> None:
         if not isinstance(mavlink2_packet, (bytes, bytearray)):
