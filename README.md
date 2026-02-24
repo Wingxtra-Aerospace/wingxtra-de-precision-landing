@@ -49,11 +49,14 @@ DroneEngage owns the physical FC connection. This project outputs **INTERNAL MAV
 - Send encoded MAVLink2 packet to DroneEngage via DataBus as INTERNAL MAVLink.
 - DroneEngage forwards to FC on its existing MAVLink link.
 
-## Current TODO
-Implement `DroneEngageDatabusInternalMavlinkOut.send_landing_target()` in:
-`src/wingxtra_pl/mavlink_out/databus_internal_mavlink.py`
+## DataBus publisher
+`src/wingxtra_pl/mavlink_out/databus_internal_mavlink.py` publishes MAVLink2
+`LANDING_TARGET` packets to DroneEngage's internal bus endpoint and never opens a
+physical FC serial port.
 
-It must publish raw MAVLink2 bytes as an INTERNAL MAVLink message through DroneEngage DataBus.
+- `databus_transport: udp_raw` sends raw MAVLink2 bytes (default).
+- `databus_transport: udp_json` sends a JSON envelope with
+  `topic/internal_mavlink_topic` + base64 payload.
 
 ## Setup (on the DroneEngage Pi)
 1. Install dependencies:
@@ -69,6 +72,12 @@ It must publish raw MAVLink2 bytes as an INTERNAL MAVLink message through DroneE
 
 ```bash
 python3 -m src.wingxtra_pl.main
+```
+
+### Dry run / debug
+
+```bash
+python3 -m src.wingxtra_pl.main --dry-run --debug-overlay
 ```
 
 ## Notes
