@@ -78,6 +78,52 @@ class DatabusParseTests(unittest.TestCase):
             else:
                 os.environ['DATABUS_PORT'] = old_port
 
+    def test_resolve_rejects_invalid_cli_port(self):
+        cfg = {'mavlink_out': {'databus_host': 'cfg-host', 'databus_port': 15000}}
+        args = SimpleNamespace(databus_host='cli-host', databus_port=70000)
+        with self.assertRaisesRegex(ValueError, "--databus-port"):
+            self.resolve_databus_endpoint(args, cfg)
+
+    def test_resolve_rejects_invalid_env_port(self):
+        old_port = os.environ.get('DATABUS_PORT')
+        old_host = os.environ.get('DATABUS_HOST')
+        try:
+            os.environ['DATABUS_HOST'] = 'env-host'
+            os.environ['DATABUS_PORT'] = 'abc'
+            cfg = {'mavlink_out': {'databus_host': 'cfg-host', 'databus_port': 15000}}
+            args = SimpleNamespace(databus_host=None, databus_port=None)
+            with self.assertRaisesRegex(ValueError, "environment variable DATABUS_PORT"):
+                self.resolve_databus_endpoint(args, cfg)
+        finally:
+            if old_port is None:
+                os.environ.pop('DATABUS_PORT', None)
+            else:
+                os.environ['DATABUS_PORT'] = old_port
+            if old_host is None:
+                os.environ.pop('DATABUS_HOST', None)
+            else:
+                os.environ['DATABUS_HOST'] = old_host
+
+    def test_resolve_fails_when_no_explicit_endpoint(self):
+        old_port = os.environ.get('DATABUS_PORT')
+        old_host = os.environ.get('DATABUS_HOST')
+        try:
+            os.environ.pop('DATABUS_PORT', None)
+            os.environ.pop('DATABUS_HOST', None)
+            cfg = {'mavlink_out': {'databus_host': None, 'databus_port': None}}
+            args = SimpleNamespace(databus_host=None, databus_port=None)
+            with self.assertRaisesRegex(ValueError, "No runtime endpoint discovery is performed"):
+                self.resolve_databus_endpoint(args, cfg)
+        finally:
+            if old_port is None:
+                os.environ.pop('DATABUS_PORT', None)
+            else:
+                os.environ['DATABUS_PORT'] = old_port
+            if old_host is None:
+                os.environ.pop('DATABUS_HOST', None)
+            else:
+                os.environ['DATABUS_HOST'] = old_host
+
 
 if __name__ == '__main__':
     unittest.main()
