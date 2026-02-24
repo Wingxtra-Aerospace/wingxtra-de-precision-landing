@@ -4,6 +4,29 @@
 Run precision landing on the SAME Raspberry Pi that runs DroneEngage (no extra Pi),
 using a downward IMX219 camera and a Landmark multi-tag target export (`landing-target.json`).
 
+## Mandatory per-drone camera calibration (DO NOT SKIP)
+
+This system **requires** a valid `camera.yaml` at runtime.
+`camera.yaml` contains camera intrinsics + distortion coefficients used for pose estimation.
+Without it, precision landing range/position will be wrong and landing may be unsafe.
+
+### Policy (Wingxtra)
+- **Every drone** + **every camera** must be calibrated.
+- If the camera is replaced, moved, re-mounted, re-focused, or the capture resolution changes:
+  **recalibrate and generate a new `camera.yaml`.**
+- `camera.yaml` is aircraft configuration, not source code → **do not commit it to Git**.
+  (It is intentionally listed in `.gitignore`.)
+
+### Generate `camera.yaml` on each drone
+1) SSH into the drone’s Raspberry Pi (the one running DroneEngage).
+2) Clone this repo onto that Pi.
+3) Print a chessboard calibration sheet (10x7 squares → 9x6 inner corners recommended).
+4) Measure the square size accurately (meters) and set it in:
+   `tools/calibrate_camera.py` (`SQUARE_SIZE_M`).
+5) Run calibration:
+   ```bash
+   python3 tools/calibrate_camera.py
+
 Key requirement: DO NOT open the FC serial MAVLink port from this project.
 DroneEngage owns the physical FC connection. This project outputs INTERNAL MAVLink to DroneEngage.
 
