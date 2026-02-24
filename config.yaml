@@ -26,5 +26,13 @@ mavlink_out:
 mavlink:
   send_hz: 10
 
+stability:
+  # Reject pose when reprojection RMSE exceeds threshold.
+  max_reproj_rmse_px: 8.0
+  # EMA smoothing factor in [0,1], higher = more responsive.
+  ema_alpha: 0.4
+  # Reset tracking state when target unseen beyond timeout.
+  stale_timeout_ms: 1000
+
 frames:
   cam_to_body_rpy_deg: [0.0, 0.0, 0.0]

@@ -128,3 +128,11 @@ python -m py_compile $(rg --files src tools -g '*.py')
 ## Notes
 - OpenCV dictionary must match target family: `tag36h11 => DICT_APRILTAG_36h11`.
 - If axes are swapped (vehicle moves wrong), adjust `frames.cam_to_body_rpy_deg` in `config.yaml`.
+
+## Stability controls
+
+`config.yaml` includes optional landing stability parameters:
+
+- `stability.max_reproj_rmse_px`: gate high-error pose solves.
+- `stability.ema_alpha`: EMA smoothing factor for body-frame x/y/z.
+- `stability.stale_timeout_ms`: reset tracking state when target is stale.

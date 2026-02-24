@@ -68,7 +68,7 @@ probe a candidate list
 
 ## Milestone E — Landing stability features (multi-size tags)
 
-Status: ⬜ pending
+Status: ✅ in progress branch (criteria implemented)
 
 Done when:
 

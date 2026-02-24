@@ -327,8 +327,15 @@ def main():
 
     send_hz = float(cfg["mavlink"]["send_hz"])
     period = 1.0 / max(send_hz, 1.0)
+    stability = cfg.get("stability", {})
+    max_reproj_rmse_px = float(stability.get("max_reproj_rmse_px", 8.0))
+    ema_alpha = float(stability.get("ema_alpha", 0.4))
+    stale_timeout_ms = int(stability.get("stale_timeout_ms", 1000))
+
     last = 0.0
     last_debug_save = 0.0
+    last_seen_ts = 0.0
+    ema_body: np.ndarray | None = None
     frame_count = 0
     fps_t0 = time.time()
     fps = 0.0
@@ -363,18 +370,35 @@ def main():
 
         overlay = frame_bgr.copy() if args.debug_overlay else None
 
+        if res:
+            last_seen_ts = now
+
+        gating_reason = ""
+        if res and (now - last) >= period:
+            reproj = float(res.get("reproj_rmse_px", 0.0))
+            if reproj > max_reproj_rmse_px:
+                gating_reason = f"reproj={reproj:.2f}px > {max_reproj_rmse_px:.2f}px"
+                res = None
+
         if res and (now - last) >= period:
             tvec_cam = res["tvec"]
             body = camera_to_body_ned_default(tvec_cam)
             body = (R_extra @ body.reshape(3, 1)).reshape(3)
 
+            if ema_body is None:
+                ema_body = body
+            else:
+                ema_body = ema_alpha * body + (1.0 - ema_alpha) * ema_body
+
+            body_out = ema_body
+
             pkt = build_landing_target_packet(
                 sysid=SYSID,
                 compid=COMPID,
                 target_num=target_num,
-                x_m=float(body[0]),
-                y_m=float(body[1]),
-                z_m=float(body[2]),
+                x_m=float(body_out[0]),
+                y_m=float(body_out[1]),
+                z_m=float(body_out[2]),
                 angle_x=float(res["angle_x"]),
                 angle_y=float(res["angle_y"]),
             )
@@ -384,9 +408,9 @@ def main():
                 % (
                     res["used_ids"],
                     res["num_markers_used"],
-                    float(body[0]),
-                    float(body[1]),
-                    float(body[2]),
+                    float(body_out[0]),
+                    float(body_out[1]),
+                    float(body_out[2]),
                 )
             )
 
@@ -395,6 +419,9 @@ def main():
                 out.send_landing_target(pkt)
 
             last = now
+
+        if (now - last_seen_ts) * 1000.0 > stale_timeout_ms:
+            ema_body = None
 
         if args.debug_overlay:
             corners, ids, _ = estimator.detector.detectMarkers(frame_bgr)
@@ -411,6 +438,7 @@ def main():
                     f"x: {float(body[0]):.3f} m",
                     f"y: {float(body[1]):.3f} m",
                     f"z: {float(body[2]):.3f} m",
+                    f"reproj_rmse_px: {float(res.get('reproj_rmse_px', 0.0)):.2f}",
                 ]
             else:
                 lines = [
@@ -420,6 +448,11 @@ def main():
                     "y: n/a",
                     "z: n/a",
                 ]
+                if gating_reason:
+                    lines.append(f"gate: {gating_reason}")
+
+            stale_ms = max(0.0, (now - last_seen_ts) * 1000.0)
+            lines.append(f"stale_ms: {stale_ms:.0f}/{stale_timeout_ms}")
 
             lines.append(f"FPS: {fps:.1f}")
             if args.dry_run:

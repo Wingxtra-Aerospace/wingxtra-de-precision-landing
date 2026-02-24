@@ -77,6 +77,11 @@ class MultiTagPoseEstimator:
         if not ok:
             return None
 
+        projected, _ = cv2.projectPoints(obj_pts_all, rvec, tvec, self.K, self.dist)
+        proj2d = projected.reshape(-1, 2)
+        err = img_pts_all - proj2d
+        reproj_rmse_px = float(np.sqrt(np.mean(np.sum(err * err, axis=1))))
+
         tvec = tvec.reshape(3).astype(float)
 
         # Optional angles (useful for debugging)
@@ -91,4 +96,5 @@ class MultiTagPoseEstimator:
             "angle_y": angle_y,
             "used_ids": used_ids,
             "num_markers_used": len(used_ids),
+            "reproj_rmse_px": reproj_rmse_px,
         }
