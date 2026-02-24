@@ -1,30 +1,71 @@
-# DataBus Host/Port Discovery and Overrides
+# DroneEngage DataBus Ports – Wingxtra Policy
 
-## Priority order for host/port configuration
+This document explains **how DataBus ports are handled** in the Wingxtra Precision Landing plugin
+and **why no port is hardcoded**.
 
-For reliable deployments, use this precedence:
+This exists because past implementations failed when assuming ports like `6000` or `60000`.
 
-1. CLI flags (future): `--databus-host`, `--databus-port`
-2. Environment variables (future): `DATABUS_HOST`, `DATABUS_PORT`
-3. `config.yaml` values:
-   - `mavlink_out.databus_host`
-   - `mavlink_out.databus_port`
+---
 
-## Current baseline behavior
+## Key Design Rule (Non-Negotiable)
 
-Current code reads host/port from `config.yaml` and uses those values to send INTERNAL MAVLink via DataBus framing.
+**This plugin NEVER binds to a UDP port.**
 
-## Port discovery/sniff/probe plan
+- It is a **send-only publisher**
+- The OS assigns an ephemeral source port automatically
+- DroneEngage (`de_comm`) owns all listening sockets
+- This plugin only needs the **destination host + port**
 
-To avoid assumed ports in the future implementation:
+This prevents:
+- port conflicts
+- silent packet loss
+- multiple modules fighting for the same socket
 
-1. Parse DroneEngage config files (if present on target system) and extract active DataBus endpoint.
-2. Probe a candidate port set with a lightweight handshake.
-3. Add `--databus-sniff` mode to watch UDP traffic and infer active DataBus endpoint.
-4. Record resolved endpoint in logs before starting landing loop.
+---
 
-## Operational guidance for Wingxtra now
+## Why We Do NOT Assume 6000 / 60000
 
-- Set `mavlink_out.databus_host` and `mavlink_out.databus_port` explicitly per drone.
-- Keep values under configuration management per aircraft.
-- Do not rely on default assumptions across mixed fleets.
+Although DroneEngage documentation often mentions ports like:
+- `6000`
+- `60000`
+
+In real deployments:
+- the port may differ
+- the port may be reassigned
+- multiple DroneEngage instances may exist
+- system firewalls may redirect traffic
+
+Wingxtra has already encountered failures caused by assuming these ports.
+
+**Therefore: no default port is baked into code.**
+
+---
+
+## How the Plugin Determines the DataBus Destination
+
+### Priority Order (highest → lowest)
+
+1. **CLI arguments**
+   ```bash
+   --databus-host 127.0.0.1
+   --databus-port 61234
+
+2. Environment variables
+
+export DATABUS_HOST=127.0.0.1
+export DATABUS_PORT=61234
+
+3. config.yaml
+
+mavlink_out:
+  mode: droneengage_databus
+  databus_host: 127.0.0.1
+  databus_port: 61234
+
+If no port is provided by any of the above:
+
+the program fails fast
+
+a clear error is printed explaining how to set it
+
+This is intentional.
