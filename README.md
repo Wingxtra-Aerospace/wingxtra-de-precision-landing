@@ -90,6 +90,13 @@ Priority is `CLI > ENV > config.yaml`.
 - ENV: `DATABUS_HOST` and `DATABUS_PORT`
 - Config fallback: `mavlink_out.databus_host` and `mavlink_out.databus_port`
 
+Optional discovery helper:
+
+- `--databus-sniff` with candidate list from either:
+  - `--databus-sniff-ports 60000,60001`
+  - `mavlink_out.databus_candidate_ports`
+  - `DATABUS_CANDIDATE_PORTS`
+
 If DataBus port is not provided from any source, the program fails fast with a clear error.
 
 ### Dry run / debug

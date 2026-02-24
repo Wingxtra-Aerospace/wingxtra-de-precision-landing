@@ -10,9 +10,17 @@ For reliable deployments, use this precedence:
    - `mavlink_out.databus_host`
    - `mavlink_out.databus_port`
 
+Optional helper:
+
+- `--databus-sniff` to probe candidate ports from:
+  - `--databus-sniff-ports`
+  - `mavlink_out.databus_candidate_ports`
+  - `DATABUS_CANDIDATE_PORTS`
+
 ## Current baseline behavior
 
 Current code implements CLI/ENV/config precedence and fails fast if no destination port is provided.
+It also supports optional `--databus-sniff` probing to infer a candidate port.
 
 ## Port discovery/sniff/probe plan
 

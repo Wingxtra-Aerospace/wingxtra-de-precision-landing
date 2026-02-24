@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
+import socket
 import time
 from typing import Callable, Iterator
 import yaml
@@ -109,6 +111,17 @@ def parse_args():
         help="DroneEngage DataBus port override (priority: CLI > ENV > config)",
     )
     parser.add_argument(
+        "--databus-sniff",
+        action="store_true",
+        help="Infer active DataBus UDP port by probing/sniffing candidates",
+    )
+    parser.add_argument(
+        "--databus-sniff-ports",
+        type=str,
+        default=None,
+        help="Comma-separated UDP ports for --databus-sniff (e.g. '60000,60001')",
+    )
+    parser.add_argument(
         "--video",
         type=str,
         default=None,
@@ -193,11 +206,14 @@ def resolve_databus_endpoint(args, cfg):
     if port is None:
         port = int(cfg_port) if cfg_port is not None else None
 
+    if port is None and args.databus_sniff:
+        port = sniff_databus_port(args, cfg)
+
     if port is None:
         raise ValueError(
             "DataBus destination port is not set. Configure one using either "
             "--databus-port, environment variable DATABUS_PORT, or "
-            "config.yaml:mavlink_out.databus_port"
+            "config.yaml:mavlink_out.databus_port. Optionally use --databus-sniff"
         )
 
     if not host:
@@ -208,6 +224,65 @@ def resolve_databus_endpoint(args, cfg):
         )
 
     return str(host), int(port)
+
+
+def _candidate_ports(args, cfg) -> list[int]:
+    ports: list[int] = []
+
+    if args.databus_sniff_ports:
+        for p in args.databus_sniff_ports.split(","):
+            p = p.strip()
+            if p:
+                ports.append(int(p))
+
+    cfg_candidates = cfg["mavlink_out"].get("databus_candidate_ports", [])
+    for p in cfg_candidates:
+        ports.append(int(p))
+
+    env_candidates = os.getenv("DATABUS_CANDIDATE_PORTS", "")
+    if env_candidates:
+        for p in env_candidates.split(","):
+            p = p.strip()
+            if p:
+                ports.append(int(p))
+
+    seen = set()
+    unique = []
+    for p in ports:
+        if p not in seen:
+            seen.add(p)
+            unique.append(p)
+    return unique
+
+
+def sniff_databus_port(args, cfg) -> int | None:
+    ports = _candidate_ports(args, cfg)
+    if not ports:
+        return None
+
+    host = (
+        args.databus_host
+        or os.getenv("DATABUS_HOST")
+        or cfg["mavlink_out"].get("databus_host")
+    )
+    if not host:
+        return None
+
+    probe = json.dumps(
+        {"probe": "wingxtra_databus_port_check"}, separators=(",", ":")
+    ).encode("utf-8")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(0.03)
+    try:
+        for p in ports:
+            try:
+                sock.sendto(probe, (str(host), int(p)))
+                return int(p)
+            except OSError:
+                continue
+    finally:
+        sock.close()
+    return None
 
 
 def main():
@@ -262,14 +337,6 @@ def main():
     R_extra = rpy_deg_to_rotmat(float(rpy[0]), float(rpy[1]), float(rpy[2]))
 
     frame_source, close_source = build_frame_source(args, w, h)
-
-    if args.debug_overlay and args.save_debug_frames:
-        Path("debug_frames").mkdir(parents=True, exist_ok=True)
-    elif args.save_debug_frames:
-        print("--save-debug-frames has no effect without --debug-overlay")
-
-    if args.dry_run:
-        print("Running in --dry-run mode: no MAVLink output will be sent")
 
     if args.debug_overlay and args.save_debug_frames:
         Path("debug_frames").mkdir(parents=True, exist_ok=True)
