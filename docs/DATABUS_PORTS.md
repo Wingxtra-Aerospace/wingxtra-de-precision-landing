@@ -23,7 +23,7 @@ Current code implements CLI/ENV/config precedence and fails fast if no destinati
 When `databus_port` is missing, it attempts config-file discovery first, then optional probing only if `--databus-sniff` is provided:
 
 1. Parse common DroneEngage config locations for DataBus host/port.
-2. If `--databus-sniff` is set, probe candidate ports (`--databus-sniff-ports`, `mavlink_out.databus_candidate_ports`, `DATABUS_CANDIDATE_PORTS`) using local UDP bind-table inspection on localhost candidates, and only selecting sockets owned by DroneEngage-like processes (`de_comm`, `droneengage`, `andruav`).
+2. If `--databus-sniff` is set, probe candidate ports (`--databus-sniff-ports`, `mavlink_out.databus_candidate_ports`, `DATABUS_CANDIDATE_PORTS`) using local UDP bind-table inspection on localhost candidates, and only selecting sockets owned by DroneEngage-like processes (for example `de_comm`, `droneengage`, `andruav`, or names with `de_` / `droneengage-` prefixes).
 3. If still unresolved, fail fast with a clear error.
 
 ## Port discovery/sniff/probe behavior

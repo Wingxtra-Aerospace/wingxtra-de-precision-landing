@@ -375,7 +375,12 @@ def _udp_socket_inodes_by_port() -> dict[int, set[str]]:
 def _socket_inode_process_names() -> dict[str, set[str]]:
     inode_to_names: dict[str, set[str]] = {}
     proc_root = Path("/proc")
-    for entry in proc_root.iterdir():
+    try:
+        proc_entries = list(proc_root.iterdir())
+    except OSError:
+        return inode_to_names
+
+    for entry in proc_entries:
         if not entry.name.isdigit():
             continue
         fd_dir = entry / "fd"
@@ -409,6 +414,13 @@ def _is_local_host(host: str) -> bool:
     return host in {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
 
 
+def _is_droneengage_process_name(name: str) -> bool:
+    normalized = name.strip().lower()
+    exact = {"de_comm", "droneengage", "andruav"}
+    prefixes = ("droneengage-", "de_")
+    return normalized in exact or normalized.startswith(prefixes)
+
+
 def _discover_local_bound_candidate_port(args, cfg) -> tuple[str, int] | None:
     hosts = _candidate_hosts(args, cfg)
     ports = _candidate_ports(args, cfg)
@@ -416,7 +428,6 @@ def _discover_local_bound_candidate_port(args, cfg) -> tuple[str, int] | None:
         return None
 
     by_port = _udp_socket_inodes_by_port()
-    preferred_names = ("de_comm", "droneengage", "andruav")
     inode_to_names = _socket_inode_process_names()
 
     for host in hosts:
@@ -429,7 +440,7 @@ def _discover_local_bound_candidate_port(args, cfg) -> tuple[str, int] | None:
 
             for inode in inodes:
                 proc_names = inode_to_names.get(inode, set())
-                if any(any(token in name for token in preferred_names) for name in proc_names):
+                if any(_is_droneengage_process_name(name) for name in proc_names):
                     return str(host), int(port)
 
     return None
