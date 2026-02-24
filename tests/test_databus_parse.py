@@ -1,6 +1,8 @@
 import ast
+import os
 import pathlib
 import types
+from types import SimpleNamespace
 import unittest
 
 
@@ -12,13 +14,15 @@ class DatabusParseTests(unittest.TestCase):
         tree = ast.parse(source)
         fn_nodes = [
             n for n in tree.body
-            if isinstance(n, ast.FunctionDef) and n.name in {'_parse_port', '_parse_host'}
+            if isinstance(n, ast.FunctionDef) and n.name in {'_parse_port', '_parse_host', 'resolve_databus_endpoint'}
         ]
         mod = types.ModuleType('parse_funcs')
+        mod.os = os
         mod_ast = ast.Module(body=fn_nodes, type_ignores=[])
         exec(compile(mod_ast, str(src_path), 'exec'), mod.__dict__)
         cls.parse_port = staticmethod(mod._parse_port)
         cls.parse_host = staticmethod(mod._parse_host)
+        cls.resolve_databus_endpoint = staticmethod(mod.resolve_databus_endpoint)
 
     def test_parse_port_accepts_valid_values(self):
         self.assertEqual(self.parse_port('60000', 'env'), 60000)
@@ -41,6 +45,38 @@ class DatabusParseTests(unittest.TestCase):
     def test_parse_host_rejects_empty(self):
         with self.assertRaises(ValueError):
             self.parse_host('   ', 'env')
+
+    def test_parse_errors_include_source(self):
+        with self.assertRaisesRegex(ValueError, "environment variable DATABUS_PORT"):
+            self.parse_port('bad', 'environment variable DATABUS_PORT')
+        with self.assertRaisesRegex(ValueError, "--databus-host"):
+            self.parse_host('   ', '--databus-host')
+
+    def test_resolve_endpoint_precedence_cli_over_env_over_cfg(self):
+        old_host = os.environ.get('DATABUS_HOST')
+        old_port = os.environ.get('DATABUS_PORT')
+        try:
+            os.environ['DATABUS_HOST'] = 'env-host'
+            os.environ['DATABUS_PORT'] = '14000'
+            cfg = {'mavlink_out': {'databus_host': 'cfg-host', 'databus_port': 15000}}
+            args = SimpleNamespace(databus_host='cli-host', databus_port=13000)
+            self.assertEqual(self.resolve_databus_endpoint(args, cfg), ('cli-host', 13000))
+
+            args2 = SimpleNamespace(databus_host=None, databus_port=None)
+            self.assertEqual(self.resolve_databus_endpoint(args2, cfg), ('env-host', 14000))
+
+            os.environ.pop('DATABUS_HOST', None)
+            os.environ.pop('DATABUS_PORT', None)
+            self.assertEqual(self.resolve_databus_endpoint(args2, cfg), ('cfg-host', 15000))
+        finally:
+            if old_host is None:
+                os.environ.pop('DATABUS_HOST', None)
+            else:
+                os.environ['DATABUS_HOST'] = old_host
+            if old_port is None:
+                os.environ.pop('DATABUS_PORT', None)
+            else:
+                os.environ['DATABUS_PORT'] = old_port
 
 
 if __name__ == '__main__':
