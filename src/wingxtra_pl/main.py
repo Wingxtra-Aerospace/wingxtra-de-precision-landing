@@ -179,7 +179,16 @@ def build_frame_source(
     return gen(), picam2.stop
 
 
-def resolve_databus_endpoint(args, cfg):
+def _parse_port(value, source: str) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid DataBus port from {source}: {value!r}") from exc
+
+
+def resolve_databus_endpoint(args, cfg) -> tuple[str, int]:
     cfg_host = cfg["mavlink_out"].get("databus_host")
     cfg_port = cfg["mavlink_out"].get("databus_port")
 
@@ -188,10 +197,10 @@ def resolve_databus_endpoint(args, cfg):
         host = os.getenv("DATABUS_HOST") or cfg_host
 
     env_port_raw = os.getenv("DATABUS_PORT")
-    env_port = int(env_port_raw) if env_port_raw else None
+    env_port = _parse_port(env_port_raw, "environment variable DATABUS_PORT")
     port = args.databus_port if args.databus_port is not None else env_port
     if port is None:
-        port = int(cfg_port) if cfg_port is not None else None
+        port = _parse_port(cfg_port, "config.yaml:mavlink_out.databus_port")
 
     if port is None:
         raise ValueError(
