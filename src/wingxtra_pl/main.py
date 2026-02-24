@@ -214,7 +214,8 @@ def resolve_databus_endpoint(args, cfg) -> tuple[str, int]:
 
     env_port_raw = os.getenv("DATABUS_PORT")
     env_port = _parse_port(env_port_raw, "environment variable DATABUS_PORT")
-    port = args.databus_port if args.databus_port is not None else env_port
+    cli_port = _parse_port(args.databus_port, "--databus-port")
+    port = cli_port if cli_port is not None else env_port
     if port is None:
         port = _parse_port(cfg_port, "config.yaml:mavlink_out.databus_port")
 
