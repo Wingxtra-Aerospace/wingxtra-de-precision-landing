@@ -20,8 +20,6 @@ mavlink_out:
   databus_host: 127.0.0.1
   # Must be set per deployment (CLI/env/config). Keep null in repository defaults.
   databus_port: null
-  # Optional candidate ports for --databus-sniff probing.
-  databus_candidate_ports: []
 
 mavlink:
   send_hz: 10
