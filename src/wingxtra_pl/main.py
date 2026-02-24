@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 from pathlib import Path
-import socket
 import time
 from typing import Callable, Iterator
 import yaml
@@ -111,17 +109,6 @@ def parse_args():
         help="DroneEngage DataBus port override (priority: CLI > ENV > config)",
     )
     parser.add_argument(
-        "--databus-sniff",
-        action="store_true",
-        help="Infer active DataBus UDP port by probing/sniffing candidates",
-    )
-    parser.add_argument(
-        "--databus-sniff-ports",
-        type=str,
-        default=None,
-        help="Comma-separated UDP ports for --databus-sniff (e.g. '60000,60001')",
-    )
-    parser.add_argument(
         "--video",
         type=str,
         default=None,
@@ -206,14 +193,18 @@ def resolve_databus_endpoint(args, cfg):
     if port is None:
         port = int(cfg_port) if cfg_port is not None else None
 
-    if port is None and args.databus_sniff:
-        port = sniff_databus_port(args, cfg)
+    if port is None:
+        discovered = discover_databus_endpoint()
+        if discovered:
+            if not host and discovered[0]:
+                host = discovered[0]
+            port = discovered[1]
 
     if port is None:
         raise ValueError(
             "DataBus destination port is not set. Configure one using either "
             "--databus-port, environment variable DATABUS_PORT, or "
-            "config.yaml:mavlink_out.databus_port. Optionally use --databus-sniff"
+            "config.yaml:mavlink_out.databus_port"
         )
 
     if not host:
@@ -226,63 +217,81 @@ def resolve_databus_endpoint(args, cfg):
     return str(host), int(port)
 
 
-def _candidate_ports(args, cfg) -> list[int]:
-    ports: list[int] = []
+def _read_databus_from_droneengage_configs() -> tuple[str | None, int | None]:
+    """Best-effort parse of common DroneEngage config locations."""
+    candidate_paths = [
+        Path("/etc/droneengage/config.yaml"),
+        Path("/etc/droneengage/config.yml"),
+        Path("/etc/droneengage/config.json"),
+        Path("/opt/droneengage/config.yaml"),
+        Path("/opt/droneengage/config.yml"),
+        Path("/opt/droneengage/config.json"),
+        Path.home() / ".droneengage" / "config.yaml",
+        Path.home() / ".droneengage" / "config.yml",
+        Path.home() / ".droneengage" / "config.json",
+    ]
 
-    if args.databus_sniff_ports:
-        for p in args.databus_sniff_ports.split(","):
-            p = p.strip()
-            if p:
-                ports.append(int(p))
+    def search(value):
+        if isinstance(value, dict):
+            host = None
+            port = None
+            for k, v in value.items():
+                key = str(k).lower()
+                if key in {"databus_host", "databushost"}:
+                    host = v
+                elif key in {"databus_port", "databusport"}:
+                    port = v
+            if port is not None:
+                return host, port
 
-    cfg_candidates = cfg["mavlink_out"].get("databus_candidate_ports", [])
-    for p in cfg_candidates:
-        ports.append(int(p))
-
-    env_candidates = os.getenv("DATABUS_CANDIDATE_PORTS", "")
-    if env_candidates:
-        for p in env_candidates.split(","):
-            p = p.strip()
-            if p:
-                ports.append(int(p))
-
-    seen = set()
-    unique = []
-    for p in ports:
-        if p not in seen:
-            seen.add(p)
-            unique.append(p)
-    return unique
-
-
-def sniff_databus_port(args, cfg) -> int | None:
-    ports = _candidate_ports(args, cfg)
-    if not ports:
+            for v in value.values():
+                nested = search(v)
+                if nested is not None:
+                    return nested
+        elif isinstance(value, list):
+            for item in value:
+                nested = search(item)
+                if nested is not None:
+                    return nested
         return None
 
-    host = (
-        args.databus_host
-        or os.getenv("DATABUS_HOST")
-        or cfg["mavlink_out"].get("databus_host")
-    )
-    if not host:
-        return None
+    for path in candidate_paths:
+        if not path.exists() or not path.is_file():
+            continue
 
-    probe = json.dumps(
-        {"probe": "wingxtra_databus_port_check"}, separators=(",", ":")
-    ).encode("utf-8")
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(0.03)
-    try:
-        for p in ports:
-            try:
-                sock.sendto(probe, (str(host), int(p)))
-                return int(p)
-            except OSError:
-                continue
-    finally:
-        sock.close()
-    return None
+        suffix = path.suffix.lower()
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                if suffix == ".json":
+                    parsed = json.load(f)
+                elif suffix in {".yaml", ".yml"}:
+                    parsed = yaml.safe_load(f)
+                else:
+                    continue
+        except (OSError, json.JSONDecodeError, yaml.YAMLError):
+            continue
+
+        discovered = search(parsed)
+        if discovered is None:
+            continue
+
+        host, port = discovered
+        try:
+            port_int = int(port)
+        except (TypeError, ValueError):
+            continue
+
+        host_str = str(host) if host else None
+        return host_str, port_int
+
+    return None, None
+
+
+def discover_databus_endpoint() -> tuple[str | None, int] | None:
+    cfg_host, cfg_port = _read_databus_from_droneengage_configs()
+    if cfg_port is None:
+        return None
+    return cfg_host, int(cfg_port)
 
 
 def main():
