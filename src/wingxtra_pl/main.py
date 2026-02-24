@@ -197,7 +197,8 @@ def resolve_databus_endpoint(args, cfg):
         raise ValueError(
             "DataBus destination port is not set. Configure one using either "
             "--databus-port, environment variable DATABUS_PORT, or "
-            "config.yaml:mavlink_out.databus_port"
+            "config.yaml:mavlink_out.databus_port. "
+            "No runtime endpoint discovery is performed."
         )
 
     if not host:
@@ -208,8 +209,6 @@ def resolve_databus_endpoint(args, cfg):
         )
 
     return str(host), int(port)
-
-
 
 
 def main():
