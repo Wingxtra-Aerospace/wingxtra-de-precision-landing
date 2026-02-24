@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 import time
+from typing import Callable, Iterator
 import yaml
 import numpy as np
 import cv2
@@ -107,7 +108,75 @@ def parse_args():
         default=None,
         help="DroneEngage DataBus port override (priority: CLI > ENV > config)",
     )
+    parser.add_argument(
+        "--video",
+        type=str,
+        default=None,
+        help="Read frames from a prerecorded video file instead of Pi camera",
+    )
+    parser.add_argument(
+        "--images",
+        type=str,
+        default=None,
+        help="Read frames from an image directory instead of Pi camera",
+    )
     return parser.parse_args()
+
+
+def _iter_image_dir(path: Path) -> Iterator[np.ndarray]:
+    exts = ("*.png", "*.jpg", "*.jpeg", "*.bmp")
+    files = []
+    for ext in exts:
+        files.extend(sorted(path.glob(ext)))
+    if not files:
+        raise ValueError(f"No images found in directory: {path}")
+
+    for p in files:
+        frame = cv2.imread(str(p), cv2.IMREAD_COLOR)
+        if frame is None:
+            continue
+        yield frame
+
+
+def build_frame_source(
+    args, width: int, height: int
+) -> tuple[Iterator[np.ndarray], Callable[[], None]]:
+    if args.video and args.images:
+        raise ValueError("Use only one of --video or --images")
+
+    if args.video:
+        cap = cv2.VideoCapture(args.video)
+        if not cap.isOpened():
+            raise ValueError(f"Unable to open video: {args.video}")
+
+        def gen() -> Iterator[np.ndarray]:
+            while True:
+                ok, frame = cap.read()
+                if not ok:
+                    break
+                yield frame
+
+        return gen(), cap.release
+
+    if args.images:
+        image_dir = Path(args.images)
+        if not image_dir.is_dir():
+            raise ValueError(f"--images path is not a directory: {args.images}")
+        return _iter_image_dir(image_dir), (lambda: None)
+
+    picam2 = Picamera2()
+    video_config = picam2.create_video_configuration(
+        main={"format": "RGB888", "size": (width, height)}
+    )
+    picam2.configure(video_config)
+    picam2.start()
+
+    def gen() -> Iterator[np.ndarray]:
+        while True:
+            frame_rgb = picam2.capture_array()
+            yield cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+
+    return gen(), picam2.stop
 
 
 def resolve_databus_endpoint(args, cfg):
@@ -192,13 +261,15 @@ def main():
     rpy = cfg["frames"]["cam_to_body_rpy_deg"]
     R_extra = rpy_deg_to_rotmat(float(rpy[0]), float(rpy[1]), float(rpy[2]))
 
-    # Camera setup (IMX219 via libcamera / Picamera2)
-    picam2 = Picamera2()
-    video_config = picam2.create_video_configuration(
-        main={"format": "RGB888", "size": (w, h)}
-    )
-    picam2.configure(video_config)
-    picam2.start()
+    frame_source, close_source = build_frame_source(args, w, h)
+
+    if args.debug_overlay and args.save_debug_frames:
+        Path("debug_frames").mkdir(parents=True, exist_ok=True)
+    elif args.save_debug_frames:
+        print("--save-debug-frames has no effect without --debug-overlay")
+
+    if args.dry_run:
+        print("Running in --dry-run mode: no MAVLink output will be sent")
 
     if args.debug_overlay and args.save_debug_frames:
         Path("debug_frames").mkdir(parents=True, exist_ok=True)
@@ -212,9 +283,7 @@ def main():
     SYSID = 42
     COMPID = 191
 
-    while True:
-        frame_rgb = picam2.capture_array()
-        frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+    for frame_bgr in frame_source:
 
         res = estimator.estimate(frame_bgr)
         now = time.time()
@@ -313,7 +382,7 @@ def main():
 
         time.sleep(0.001)
 
-    picam2.stop()
+    close_source()
     if args.debug_overlay:
         cv2.destroyAllWindows()
 

@@ -98,6 +98,18 @@ If DataBus port is not provided from any source, the program fails fast with a c
 python3 -m src.wingxtra_pl.main --dry-run --debug-overlay
 ```
 
+### Offline input mode (no Pi camera)
+
+Use one input source at a time:
+
+```bash
+python3 -m src.wingxtra_pl.main --dry-run --debug-overlay --video path/to/recording.mp4
+```
+
+```bash
+python3 -m src.wingxtra_pl.main --dry-run --debug-overlay --images path/to/frames_dir
+```
+
 ## Quick code health check
 
 Run this before deployment to ensure Python modules parse cleanly:
