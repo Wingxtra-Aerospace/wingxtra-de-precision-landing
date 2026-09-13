@@ -1,5 +1,3 @@
-numpy
-opencv-contrib-python
-PyYAML
-picamera2
-pymavlink
+# Native installation with pip-provided OpenCV. For Raspberry Pi's system
+# Picamera2/OpenCV packages, use `pip install .` in a --system-site-packages venv.
+.[vision]

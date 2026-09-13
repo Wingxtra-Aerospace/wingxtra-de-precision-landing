@@ -1,3 +1,5 @@
+> **Historical prototype notes.** These describe the previous native DataBus-only implementation, not the current release. Current instructions are in [README](../README.md), [BlueOS installation](BLUEOS_INSTALL.md) and [commissioning](COMMISSIONING.md).
+
 # CODEX RUNBOOK
 
 This file captures the Codex prompts used in this project so Wingxtra can replay iterations.

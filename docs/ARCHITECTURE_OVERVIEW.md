@@ -1,148 +1,34 @@
-# Wingxtra Precision Landing – Architecture Overview
+# Architecture and failure behavior
 
-This document explains **why this architecture exists**, how components interact,
-and what must **never be changed**.
+`camera.py` continuously drains one live source into a single latest-frame slot. Each locally received frame has a monotonic timestamp, Unix microsecond timestamp and unique sequence. The detector processes each sequence once. OpenCV/Picamera2 imports are isolated from optional hardware.
 
-This is required reading for all new Wingxtra engineers.
+`landing_target_layout.py` validates unique tag36h11 IDs and finite square corners on a common z=0 board plane. Coordinates are metres. The four corners retain the tag's intrinsic corner order and the shared board origin. White margins and print metadata are not measurement dimensions.
 
----
+`vision_multitag.py` detects all visible known tags above the pixel-size threshold. Multiple tags use RANSAC, retaining only complete inlier tags; contradictory multi-tag evidence cannot silently collapse to a single tag. A single visible tag is independently supported. IPPE evaluates planar pose solutions and selects a positive-depth minimum-reprojection-error solution. Translation is the board origin in camera coordinates, including when that origin lies outside the currently visible tag.
 
-## High-Level Goal
+`tracking.py` applies distance, finite-vector, downward-direction, reprojection, tag-count, monotonic timestamp, frame age and relative-motion gates. Rejected images never refresh the last accepted position/time. A gap resets the motion reference, and multiple consecutive good frames are needed to reacquire. There is no undocumented EMA filter adding lag, and no retransmission loop for old poses.
 
-Run **precision landing** and **DroneEngage** on a **single Raspberry Pi**
-using **one MAVLink connection to the flight controller**, with zero conflicts.
+`mavlink_out/udp.py` creates MAVLink 2 LANDING_TARGET messages with persistent sequence numbers. Position is camera-relative translation rotated into BODY_FRD. Distance is its positive Euclidean norm. The quaternion is a valid identity value; this service does not claim to report landing-pad attitude. ArduPilot's precision-landing position backend uses the position vector, not that quaternion. The sender learns its router peer from the configured ArduPilot system/component-1 heartbeat and rejects unrelated systems, components and hosts. It sends no GCS heartbeat, arm, mode or parameter command.
 
----
+`service.py` coordinates the camera, calibration, tracker, router and output modes under a lock. Each target packet is produced only from a fresh accepted image while publish mode is enabled and a valid heartbeat is recent. A processing exception disables publishing. `--dry-run` cannot be overridden through the interface. Last-known armed state stays latched through heartbeat loss, blocking setup edits until a disarmed heartbeat arrives. This is an operational guard, not a flight-controller arming interlock; the autopilot remains responsible for aircraft safety.
 
-## One-Page Architecture Diagram
+The UI is static local HTML/CSS/JavaScript served by FastAPI. All asset and API requests are relative, supporting BlueOS's extensionv2 prefix. Calibration uses the same camera frames as landing, refuses duplicate/nearly identical views, checks spatial/scale/tilt diversity, evaluates numerical RMS and stores finite checked intrinsics. Persistent files use atomic replacement. Logs are JSON lines, capped at 10 MB plus three rotated backups. Browser preview encoding is limited to 5 Hz and 960 pixels wide; the detector uses original-size images.
 
-              ┌─────────────────────────────┐
-              │        Ground Control        │
-              │ (Mission Planner / QGC / UI) │
-              └─────────────▲───────────────┘
-                            │ MAVLink
-                            │
-               ┌────────────┴─────────────┐
-               │      Flight Controller     │
-               │   (ArduPilot / PX4)        │
-               └────────────▲─────────────┘
-                            │
-                            │ SERIAL / USB (ONE PORT ONLY)
-                            │
-    ┌───────────────────────┴────────────────────────┐
-    │               Raspberry Pi (Single Board)       │
-    │                                                  │
-    │  ┌──────────────────────────────────────────┐  │
-    │  │            DroneEngage Core               │  │
-    │  │                                          │  │
-    │  │  - de_comm (DataBus router)               │  │
-    │  │  - de_mavlink (owns FC serial port)       │  │
-    │  │  - WebClient / Telemetry                  │  │
-    │  └───────────────▲──────────────────────────┘  │
-    │                  │ DataBus (UDP, internal)      │
-    │                  │                              │
-    │  ┌───────────────┴──────────────────────────┐  │
-    │  │  Wingxtra Precision Landing Plugin         │  │
-    │  │                                          │  │
-    │  │  - Camera (IMX219)                         │  │
-    │  │  - AprilTag detection (multi-size)         │  │
-    │  │  - solvePnP pose estimation                │  │
-    │  │  - Builds LANDING_TARGET MAVLink           │  │
-    │  │  - SEND ONLY via DataBus                   │  │
-    │  └──────────────────────────────────────────┘  │
-    │                                                  │
-    └──────────────────────────────────────────────────┘
+## Output modes
 
-    
----
+| Mode | Camera / preview | Target measurements |
+|---|---|---|
+| Stopped | Off | None |
+| Monitor | On | Computed, never sent |
+| Publish | On | Sent only when calibration, tracking and heartbeat checks pass |
+| Calibration session | On in monitor mode | None; publishing is blocked |
 
-## Key Rules (Non-Negotiable)
+Startup defaults to stopped. An operator can save monitor or publish-on-restart behavior after commissioning. Startup never bypasses calibration checks or restores a previously measured target. Failure to bind the MAVLink UDP port is visible in diagnostics and blocks output rather than silently sharing the port.
 
-### Rule 1 — One MAVLink Port Only
-- The **flight controller has exactly ONE MAVLink connection**.
-- `de_mavlink` is the **only** component allowed to open it.
-- No plugin may ever open `/dev/serial0` or `/dev/ttyUSB*`.
+## Explicit limits
 
-**Why:**  
-Multiple processes opening the same port causes packet corruption and unsafe behavior.
+The application is not a flight controller. It does not replace EKF/navigation, altitude estimation, landing-mode management, pilot takeover or loss-of-target policy. PnP distance can remove the measurement's dependency on a separate rangefinder; it cannot make an aircraft fly without an altitude solution.
 
----
+Local decode timestamps bound processing age, not network/exposure latency. A frozen camera feed that keeps emitting newly encoded frames is not reliably distinguishable from a stationary scene. Measure video latency and assess camera failure behavior during commissioning. USB/CSI driver hangs can require an extension restart; the latest-frame age gate stops target output while acquisition is blocked.
 
-### Rule 2 — Precision Landing Is Send-Only
-- The precision landing plugin:
-  - **does not listen**
-  - **does not bind**
-  - **does not sniff**
-- It only **publishes** `INTERNAL_MAVLINK` messages to DroneEngage DataBus.
-
-**Why:**  
-This prevents UDP port conflicts and removes the need for privileged sockets.
-
----
-
-### Rule 3 — No Hardcoded Ports
-- DataBus destination port is **deployment-specific**.
-- It must be provided via:
-  1. CLI arguments
-  2. Environment variables
-  3. config.yaml
-
-If no port is provided:
-- the program **fails fast**.
-
-**Why:**  
-Wingxtra has already experienced failures caused by assuming ports like 6000 or 60000.
-
----
-
-### Rule 4 — camera.yaml Is Mandatory Per Drone
-- Every drone and every camera must have its own `camera.yaml`.
-- `camera.yaml` is required at runtime.
-- `camera.yaml` must NEVER be committed to Git.
-
-**Why:**  
-Camera calibration is hardware-specific and directly affects landing accuracy.
-
----
-
-## Data Flow Summary
-
-1. Camera captures image
-2. AprilTags detected (any subset of large / medium / small)
-3. Multi-tag corners fused into one pose
-4. Pose smoothed and validated
-5. LANDING_TARGET MAVLink packet created
-6. Packet sent via DataBus as INTERNAL MAVLink
-7. DroneEngage forwards to flight controller
-
----
-
-## What This Architecture Prevents
-
-- ❌ Serial port contention
-- ❌ UDP bind conflicts
-- ❌ “It works on my drone” bugs
-- ❌ Multiple Raspberry Pi boards per aircraft
-- ❌ Hidden coupling between plugins
-
----
-
-## What Must Never Be Changed
-
-- Do NOT add serial access to this plugin
-- Do NOT add UDP listeners
-- Do NOT add packet sniffing
-- Do NOT hardcode ports
-- Do NOT bypass DroneEngage DataBus
-
-If any of the above seems necessary, the architecture is being violated and must be reviewed.
-
----
-
-## Summary (Read This If You Skip Everything Else)
-
-> **DroneEngage owns communication.  
-> Precision landing computes intelligence.  
-> DataBus connects them safely.**
-
-This separation is intentional and required for Wingxtra fleet safety.
+The generic image is ARM64/AMD64, CPU OpenCV, pinhole/radial-tangential calibration and a rigid downward camera. Fisheye models, moving gimbals, moving-pad velocity prediction, offboard cloud processing, 32-bit ARM, PX4 and direct CSI-in-container operation are not validated by this release.

@@ -1,0 +1,18 @@
+services:
+  precision-landing:
+    build:
+      context: .
+      target: final
+    image: wingxtra-precision-landing:1.0.0-rc.1
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 2
+    mem_limit: 1g
+    pids_limit: 256
+    # USB camera, only if it is not already owned by a video service:
+    # devices:
+    #   - /dev/video0:/dev/video0

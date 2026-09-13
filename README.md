@@ -1,165 +1,81 @@
-# Wingxtra DroneEngage Precision Landing (Single-Pi, Multi-Tag, No Rangefinder)
+# Wingxtra Precision Landing — BlueOS extension
 
-## Goal
-Run precision landing on the **same Raspberry Pi** that runs DroneEngage (no extra Pi), using a downward IMX219 camera and a Landmark multi-tag target export (`landing-target.json`).
+A companion-computer service that estimates the **shared landing-board origin from multiple AprilTags**, using calibrated camera intrinsics and the physical board dimensions. It sends MAVLink 2 `LANDING_TARGET` position measurements to ArduPilot through an onboard router.
 
-## Mandatory per-drone camera calibration (DO NOT SKIP)
+**Version 1.0.0-rc.1 is a release candidate for integration and aircraft validation.** Automated software tests do not establish flight qualification. This repository includes the extension, calibration interface, tests, and a commissioning procedure; no camera/aircraft combination is yet listed as flight validated.
 
-This system **requires** a valid `camera.yaml` at runtime.
-`camera.yaml` contains camera intrinsics and distortion coefficients used for pose estimation.
-Without it, precision landing range/position will be wrong and landing may be unsafe.
+## What is included
 
-### Policy (Wingxtra)
-- **Every drone** + **every camera** must be calibrated.
-- If the camera is replaced, moved, re-mounted, re-focused, or the capture resolution changes: **recalibrate and generate a new `camera.yaml`**.
-- `camera.yaml` is aircraft configuration, not source code, so **do not commit it to Git**.
-  (It is intentionally listed in `.gitignore`.)
+- Original joint board-pose implementation with AprilTag `tag36h11`, robust multi-tag fitting and whole-tag outlier rejection. A single visible known tag can still locate the common board origin.
+- Correct `BODY_FRD` position, positive PnP distance, capture/receipt timestamp and persistent MAVLink sequence numbers.
+- Recent autopilot heartbeat requirement; stale, repeated, distant, poor-fit and jumping measurements are suppressed. Lost targets must be reacquired.
+- BlueOS web interface: live preview, camera/mount setup, board import and SVG export, calibration capture/solve/import/export, connection settings and local diagnostic logs.
+- Camera calibration bound to the source, camera identity, lens profile and resolution. No aircraft calibration is shipped.
+- RTSP, HTTP MJPEG and USB/V4L2 input. Picamera2 is optional for a native Raspberry Pi installation; it is never an unconditional import.
+- Docker/BlueOS packaging for **64-bit ARM and x86-64**. The candidate image does not support 32-bit ARM or direct CSI/libcamera access inside the container.
+- Native DroneEngage DataBus output as an advanced option, with corrected registration, routing envelope and UDP chunk framing. A separate raw MAVLink heartbeat feed is required.
 
-### Generate `camera.yaml` on each drone
-1. SSH into the drone’s Raspberry Pi (the one running DroneEngage).
-2. Clone this repo onto that Pi.
-3. Print a chessboard calibration sheet (10x7 squares, 9x6 inner corners recommended).
-4. Measure square size accurately (meters) and set it in `tools/calibrate_camera.py` (`SQUARE_SIZE_M`).
-5. Run calibration:
+## Install on BlueOS
 
-```bash
-python3 tools/calibrate_camera.py
+Follow [the BlueOS installation guide](docs/BLUEOS_INSTALL.md). The default architecture is:
+
+```mermaid
+flowchart TD
+    C[Flight camera] --> V[Wingxtra extension]
+    V -->|LANDING_TARGET| R[BlueOS MAVLink router]
+    R --> F[ArduPilot flight controller]
+    F -->|Heartbeat| R
+    R --> V
+    D[DroneEngage, optional] <--> R
 ```
 
-## Key requirement (non-negotiable)
-**Do not open the FC serial MAVLink port from this project.**
-DroneEngage owns the physical FC connection. This project outputs **INTERNAL MAVLink** to DroneEngage.
+BlueOS owns the physical flight-controller link. This extension never opens a serial MAVLink port. Only one precision-landing publisher should be active for a vehicle.
 
-## Inputs
-- `landing-target.json`: Landmark Landing Target export (AprilTag tag36h11, marker IDs, `object_points`).
-- `camera.yaml`: camera intrinsics and distortion (generated with `tools/calibrate_camera.py`).
-- IMX219 camera (Arducam IMX219 fixed focus) via Picamera2/libcamera.
+The workflow in **Actions → Validate and package BlueOS extension** tests both architectures, exports loadable image archives and, when registry permissions allow, publishes a commit-specific image:
 
-## How pose is estimated
-- Detect multiple AprilTags in a single frame (OpenCV ArUco AprilTag dictionary).
-- Filter detections to IDs present in `landing-target.json`.
-- Stack all detected tag corners (2D image points) with their 3D `object_points` (meters).
-- Solve one pose with `solvePnP` over all points for stability and long-range acquisition.
-
-## MAVLink output
-- Construct MAVLink2 `LANDING_TARGET` with:
-  - `frame = MAV_FRAME_BODY_NED`
-  - `position_valid = 1`
-  - `x, y, z` populated in meters (body frame)
-- Send encoded MAVLink2 packet to DroneEngage via DataBus as INTERNAL MAVLink.
-- DroneEngage forwards to FC on its existing MAVLink link.
-
-## DataBus publisher
-`src/wingxtra_pl/mavlink_out/databus_internal_mavlink.py` publishes MAVLink2
-`LANDING_TARGET` packets to DroneEngage's internal bus endpoint and never opens a
-physical FC serial port.
-
-- Uses DataBus-like `sendBMSG` framing:
-  - JSON metadata header including `andruav_message_id=6504`
-  - a NULL separator byte (`\x00`)
-  - raw MAVLink2 packet bytes
-- `mavlink_out.internal_mavlink_cmd` configures the BMSG message-cmd string.
-
-Validate payload format locally with:
-
-```bash
-python tools/fake_databus_rx.py --port 60000
+```
+ghcr.io/wingxtra-aerospace/wingxtra-de-precision-landing:sha-<full-commit-sha>
 ```
 
-## Setup (on the DroneEngage Pi)
-### Per-drone setup checklist
+Use only a commit whose complete workflow passed. Image publication and package visibility depend on the repository's Actions/GHCR permissions; check the run before attempting installation. There is no `latest` tag and no automatic installation on an aircraft.
 
-- [ ] Clone repo onto the same Pi that runs DroneEngage.
-- [ ] Install Python dependencies (`pip3 install -r requirements.txt`).
-- [ ] Generate per-aircraft `camera.yaml` using `tools/calibrate_camera.py`.
-- [ ] Verify `camera.yaml` resolution matches `config.yaml` camera width/height.
-- [ ] Verify `landing-target.json` corresponds to the physical target in use.
-- [ ] Configure DataBus destination via CLI/ENV/config (`databus_host`, `databus_port`).
-
-1. Install dependencies:
-   - Raspberry Pi OS + libcamera
-   - `sudo apt update`
-   - `sudo apt install -y python3-pip`
-   - `pip3 install -r requirements.txt`
-2. Generate `camera.yaml`:
-   - Print a chessboard (10x7 squares => 9x6 inner corners)
-   - Measure square size, update `SQUARE_SIZE_M` in `tools/calibrate_camera.py`
-   - Run `python3 tools/calibrate_camera.py`
-3. Run:
+For a local Docker build:
 
 ```bash
-python3 -m src.wingxtra_pl.main
+docker build --target test -t wingxtra-pl-tests .
+docker compose up --build -d
 ```
 
-### Preflight checklist
+Open `http://<companion-ip>:8077/`. Set up the camera and UDP endpoint, calibrate, verify the target board, and complete [commissioning](docs/COMMISSIONING.md). First startup has output stopped. Reboot behavior is explicitly configurable.
 
-- [ ] Start with `--dry-run --debug-overlay` and confirm stable detections.
-- [ ] Confirm IDs shown in overlay match expected tags on target board.
-- [ ] Confirm x/y/z signs move as expected when shifting target position.
-- [ ] Confirm reprojection RMSE remains below configured threshold.
-- [ ] Confirm no process in this module opens `/dev/serial0`.
-- [ ] Only then run without `--dry-run` for INTERNAL MAVLink publication.
+## Native development / Raspberry Pi
 
-### DataBus host/port overrides
-
-Priority is `CLI > ENV > config.yaml`.
-
-- CLI: `--databus-host` and `--databus-port`
-- ENV: `DATABUS_HOST` and `DATABUS_PORT`
-- Config fallback: `mavlink_out.databus_host` and `mavlink_out.databus_port`
-
-If DataBus port is not provided from any source, the program fails fast with a clear error.
-No runtime DataBus endpoint auto-discovery is performed.
-
-### Dry run / debug
+Python 3.11 or newer:
 
 ```bash
-python3 -m src.wingxtra_pl.main --dry-run --debug-overlay
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e '.[vision,test]'
+wingxtra-pl --data-dir ./data --dry-run
+pytest -q
 ```
 
-### Offline input mode (no Pi camera)
+`--dry-run` inhibits MAVLink target output for the lifetime of the process, including requests from the interface. A native Raspberry Pi using the distribution's Picamera2/OpenCV packages should use a virtual environment with `--system-site-packages` and install `.[test]` instead of `.[vision,test]`; see [native installation](docs/NATIVE_INSTALL.md).
 
-Use one input source at a time:
+Runtime files live in `data/` (or `/data` in the container): `config.json`, `landing-target.json`, `camera.json` and rotating `measurements.jsonl` logs. Imports of `config.yaml` use `wingxtra-pl --config config.yaml`. Camera calibration and runtime files are excluded from git.
 
-```bash
-python3 -m src.wingxtra_pl.main --dry-run --debug-overlay --video path/to/recording.mp4
-```
+## Range and coordinates
 
-```bash
-python3 -m src.wingxtra_pl.main --dry-run --debug-overlay --images path/to/frames_dir
-```
+The board's `object_points` are detection-corner coordinates **in metres**. They define the physical scale and the common landing origin. Do not substitute `size_mm`: exports may include a white quiet margin in that value. A board printed at the wrong scale produces the wrong distance even with a low reprojection error.
 
-## Quick code health check
+Default downward camera transform: `forward = -image_y`, `right = image_x`, `down = optical_z`. Set the camera lever arm in ArduPilot `PLND_CAM_POS_*`; do not add it again in this service.
 
-Run this before deployment to ensure Python modules parse cleanly:
+PnP supplies a distance, so the vision measurement does not inherently require an additional downward rangefinder. The aircraft still needs a working autopilot altitude/navigation solution. Lighting, motion blur, board pixel size, mounting and camera latency determine the usable operating range; no altitude or accuracy envelope is claimed without aircraft measurements.
 
-```bash
-python -m py_compile $(rg --files src tools -g '*.py')
-```
+## Validation and provenance
 
-## Notes
-- OpenCV dictionary must match target family: `tag36h11 => DICT_APRILTAG_36h11`.
-- If axes are swapped (vehicle moves wrong), adjust `frames.cam_to_body_rpy_deg` in `config.yaml`.
+See [architecture and failure behavior](docs/ARCHITECTURE_OVERVIEW.md), [commissioning and test evidence](docs/COMMISSIONING.md), and [changes from the earlier implementation](docs/CHANGELOG.md).
 
-## Stability controls
+The extension follows the [BlueOS extension interface](https://blueos.cloud/docs/stable/development/extensions/) and [MAVLink landing-target protocol](https://mavlink.io/en/services/landing_target.html). ArduPilot integration is targeted at Copter's companion precision-landing backend. Tests cover decoded packet fields, rendered multi-tag images, calibration, UDP transport and service behavior. DataBus framing is checked against the [DroneEngage client protocol](https://github.com/DroneEngage/droneengage_databus/tree/main/python); live DroneEngage forwarding must also be verified on the installed version.
 
-`config.yaml` includes optional landing stability parameters:
-
-- `stability.max_reproj_rmse_px`: gate high-error pose solves.
-- `stability.ema_alpha`: EMA smoothing factor for body-frame x/y/z.
-- `stability.stale_timeout_ms`: reset tracking state when target is stale.
-
-## Service deployment
-
-Template and scripts are included for deployment on drones:
-
-- systemd unit template: `systemd/wingxtra-precision-landing.service`
-- install helper: `scripts/install.sh`
-- runtime wrapper: `scripts/run.sh`
-
-Install example:
-
-```bash
-sudo ./scripts/install.sh
-sudo systemctl start wingxtra-precision-landing.service
-```
+MIT licensed. The implementation does not incorporate code from the GPL-licensed BlueOS community precision-landing extension.
