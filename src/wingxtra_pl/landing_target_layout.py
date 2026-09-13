@@ -51,6 +51,8 @@ class LandingTargetLayout:
 
         markers: Dict[int, MarkerDef] = {}
         for m in markers_raw:
+            if not isinstance(m, dict):
+                raise ValueError("Each marker must be a JSON object")
             family = str(m.get("family", "")).strip()
             mid = m.get("id")
             if family != "tag36h11":

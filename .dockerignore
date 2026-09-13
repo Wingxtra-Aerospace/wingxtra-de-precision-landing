@@ -13,3 +13,5 @@ dist
 build
 docs
 .github
+node_modules
+test-results

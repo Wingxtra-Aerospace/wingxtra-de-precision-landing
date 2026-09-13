@@ -6,6 +6,7 @@ from pathlib import Path
 
 import uvicorn
 import yaml
+import cv2
 
 from .config import Config
 from .legacy_cli import resolve_databus_endpoint
@@ -29,6 +30,7 @@ def main():
         "--dry-run", action="store_true", help="Start in monitor mode; no target output"
     )
     args = parser.parse_args()
+    cv2.setNumThreads(2)
     service = LandingService(args.data_dir)
     incoming = (
         Config.model_validate(yaml.safe_load(args.config.read_text())) if args.config else None

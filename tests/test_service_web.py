@@ -173,3 +173,26 @@ def test_invalid_mount_nan_or_non_live_source_cannot_be_saved():
         c["camera"].update(change)
         with pytest.raises(ValueError):
             Config.model_validate(c)
+
+
+def test_dry_run_cannot_be_overridden_by_api(tmp_path, board_data, calibration):
+    service = make_service(tmp_path, board_data)
+    service.output_inhibited = True
+    service.import_calibration(calibration)
+    with TestClient(create_app(tmp_path, service)) as client:
+        response = client.post(
+            "/api/control", headers={"X-Wingxtra-Request": "1"}, json={"mode": "publish"}
+        )
+        assert response.status_code == 409
+        assert "dry-run" in response.json()["detail"]
+        assert client.get("/api/status").json()["sent_count"] == 0
+
+
+def test_malformed_board_and_oversized_api_request_are_rejected(tmp_path, board_data):
+    service = make_service(tmp_path, board_data)
+    headers = {"X-Wingxtra-Request": "1"}
+    with TestClient(create_app(tmp_path, service)) as client:
+        assert client.put("/api/board", headers=headers, json={"markers": [42]}).status_code == 409
+        assert (
+            client.put("/api/board", headers=headers, content=b"x" * 1_000_001).status_code == 413
+        )
