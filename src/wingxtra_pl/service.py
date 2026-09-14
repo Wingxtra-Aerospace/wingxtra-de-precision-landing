@@ -35,6 +35,8 @@ class LandingService:
         self.calibration = self.session = None
         self.mode = "stopped"
         self.output_inhibited = False
+        self.telemetry_seen = False
+        self.camera_fault = None
         self.error = None
         self.events = deque(maxlen=100)
         self.log = logging.getLogger(f"wingxtra.{id(self)}")
@@ -100,17 +102,24 @@ class LandingService:
             )
 
     def _open_link(self):
+        link = databus = None
         try:
-            self.link = self.link_factory(self.config.output)
+            link = self.link_factory(self.config.output)
             if self.config.output.mode == "droneengage_databus":
                 c = self.config.output
-                self.databus = DroneEngageDatabusInternalMavlinkOut(
+                databus = DroneEngageDatabusInternalMavlinkOut(
                     c.databus_host, c.databus_port, module_key=c.databus_module_key
                 )
-            self.error = None
+            self.link, self.databus = link, databus
         except OSError as exc:
+            if link:
+                link.close()
+            if databus:
+                databus.close()
+            self.link = self.databus = None
             self.error = (
-                f"MAVLink endpoint unavailable ({type(exc).__name__}); check address and port"
+                f"MAVLink endpoint unavailable ({type(exc).__name__}); "
+                "check Linux socket support, address and port"
             )
             self.event("link_error", reason=self.error)
 
@@ -127,26 +136,54 @@ class LandingService:
                     self.error = str(exc)
                     self.event("startup_blocked", reason=self.error)
 
-    def assert_editable(self):
+    def _poll_link(self, now=None):
+        if self.link:
+            self.link.poll(now)
+            self.telemetry_seen |= self.link.seen_heartbeat or self.link.armed is not None
+
+    def _setup_lock_reason(self):
         if self.mode == "publish":
-            raise ValueError("Stop MAVLink output before changing setup")
+            return "Stop MAVLink output before changing setup"
         # Preserve last armed state even after heartbeat loss.
         if self.link is not None and self.link.armed is True:
-            raise ValueError("Setup is locked while the flight controller is armed")
+            return "Setup is locked while the flight controller is armed"
+        if self.telemetry_seen and (
+            self.link is None or not self.link.fresh() or self.link.armed is not False
+        ):
+            return "Setup requires a fresh disarmed heartbeat after telemetry has been seen"
+        return None
+
+    def assert_editable(self):
+        # Also check here: calibration/HTTP work may have delayed the engine's next poll.
+        self._poll_link()
+        if reason := self._setup_lock_reason():
+            raise ValueError(reason)
 
     def _close_camera(self):
-        if self.camera:
-            self.camera.close()
-            self.camera = None
         self.last_preview = None
         self.last_measurement = None
         self.last_sequence = -1
         self.tracker.reset()
+        if self.camera:
+            try:
+                self.camera.close()
+            except Exception as exc:
+                self.mode = "stopped"
+                self.camera_fault = (
+                    f"Camera shutdown failed ({type(exc).__name__}); "
+                    "restart the extension before reopening it"
+                )
+                self.error = self.camera_fault
+                self.event("camera_shutdown_error", reason=self.camera_fault)
+                raise ValueError(self.camera_fault) from exc
+            self.camera = None
 
     def control(self, mode: str):
         with self.lock:
             if mode not in {"stopped", "monitor", "publish"}:
                 raise ValueError("Unknown operating mode")
+            if mode != "stopped" and self.camera_fault:
+                raise ValueError(self.camera_fault)
             if mode == "publish":
                 if self.output_inhibited:
                     raise ValueError("MAVLink output is disabled by --dry-run for this process")
@@ -154,7 +191,9 @@ class LandingService:
                     raise ValueError("Finish or cancel the calibration session first")
                 if self.estimator is None:
                     raise ValueError("A valid calibration matching this camera is required")
-                if self.link is None:
+                if self.link is None or (
+                    self.config.output.mode == "droneengage_databus" and self.databus is None
+                ):
                     raise ValueError("MAVLink endpoint is unavailable; check connection setup")
             self.mode = mode  # Stops output before any potentially slow driver shutdown.
             self.tracker.reset()
@@ -163,8 +202,13 @@ class LandingService:
                 self.session = None
                 self._close_camera()
             elif self.camera is None:
-                self.camera = self.camera_factory(self.config.camera)
-                self.camera.start()
+                try:
+                    self.camera = self.camera_factory(self.config.camera)
+                    self.camera.start()
+                except Exception as exc:
+                    self.mode = "stopped"
+                    self._close_camera()
+                    raise ValueError("Camera startup failed; check setup") from exc
             self.event("mode", mode=mode)
             return self.status()
 
@@ -174,6 +218,7 @@ class LandingService:
             self.mode = "stopped"
             self._close_camera()
             self.session = None
+            self.assert_editable()  # Driver shutdown can take seconds; sample arming again.
             if self.link:
                 self.link.close()
                 self.link = None
@@ -187,6 +232,7 @@ class LandingService:
                 config.output.target_system, config.output.source_component
             )
             self._refresh_estimator()
+            self.error = None
             self._open_link()
             self.event("configuration_saved")
             return config.model_dump()
@@ -254,8 +300,7 @@ class LandingService:
     def tick(self):
         now = time.monotonic()
         self.last_tick = now
-        if self.link:
-            self.link.poll(now)
+        self._poll_link(now)
         if self.mode == "stopped" or self.camera is None:
             return
         frame = self.camera.snapshot()
@@ -279,7 +324,9 @@ class LandingService:
                 reason = "Waiting for flight-controller heartbeat"
             elif now - self.last_sent >= 1 / self.config.output.send_hz:
                 packet = self.encoder.encode(body, frame.unix_us, self.layout.target_num)
-                if self.databus:
+                if self.config.output.mode == "droneengage_databus":
+                    if self.databus is None:
+                        raise RuntimeError("Configured DataBus transport is unavailable")
                     self.databus.send_landing_target(packet)
                     sent = True
                 else:
@@ -350,12 +397,16 @@ class LandingService:
                 "version": __version__,
                 "mode": self.mode,
                 "dry_run": self.output_inhibited,
+                "setup_lock_reason": self._setup_lock_reason(),
                 "error": self.error,
                 "engine_alive": self.thread is not None
                 and self.thread.is_alive()
                 and now - self.last_tick < 5,
                 "camera": {
-                    "connected": frame is not None and now - frame.monotonic < 0.5,
+                    "connected": self.mode != "stopped"
+                    and self.camera_fault is None
+                    and frame is not None
+                    and 0 <= now - frame.monotonic < 0.5,
                     "error": self.camera.error if self.camera else None,
                     "width": self.config.camera.width,
                     "height": self.config.camera.height,
@@ -383,11 +434,17 @@ class LandingService:
         self.stop_event.set()
         with self.lock:
             self.mode = "stopped"
-            self._close_camera()
-            if self.link:
-                self.link.close()
-            if self.databus:
-                self.databus.close()
+            try:
+                self._close_camera()
+            except ValueError:
+                pass  # Shutdown must still release telemetry even if the driver is stuck.
+            finally:
+                if self.link:
+                    self.link.close()
+                    self.link = None
+                if self.databus:
+                    self.databus.close()
+                    self.databus = None
         if self.thread:
             self.thread.join(timeout=5)
         self.handler.close()

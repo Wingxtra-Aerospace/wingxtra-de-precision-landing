@@ -1,3 +1,17 @@
+# 1.0.0-rc.2 — second review and failure-case fixes
+
+- Fixed malformed board-corner imports returning HTTP 500, including scalar, object and overflowing integer inputs. Mixed corner winding is now rejected.
+- Fixed mirrored printable tags for boards using y-down coordinates. Tests decode the actual SVG output for both axis conventions, including all ten original-board tags.
+- Replaced application-read heartbeat timestamps with Linux kernel arrival timestamps. Expired queued packets and undrained telemetry backlogs cannot authorize output. UDP datagrams must contain complete MAVLink messages.
+- Recheck telemetry immediately before setup edits and after slow camera shutdown/calibration solving. After any aircraft telemetry has been seen, setup requires a fresh disarmed heartbeat, including after endpoint changes.
+- Made output initialization transactional. An unavailable DataBus transport cannot silently select raw UDP, and hostname resolution occurs before the output loop.
+- Latch failed camera shutdowns, reject reopening until restart, clear frames on cleanup errors, and close telemetry during shutdown even if the camera driver fails.
+- Expire stale preview responses; clear browser measurements and previews after a failed or stalled status request. Keep calibration controls locked while busy or setup is locked.
+- Honor explicit empty/zero DataBus overrides so invalid values are rejected instead of silently ignored.
+- Bumped candidate metadata and replaced the temporary-branch README URL. Added explicit Linux socket and QuadPlane integration requirements.
+
+See [second review](SECOND_REVIEW.md) for findings, regression evidence and remaining aircraft validation.
+
 # 1.0.0-rc.1 — corrected engine and BlueOS packaging
 
 - Replaced the broken publisher's duplicate `CModule` definition and missing imports with an isolated, tested DataBus sender matching upstream framing.

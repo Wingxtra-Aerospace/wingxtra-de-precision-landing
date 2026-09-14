@@ -1,7 +1,7 @@
 name: Validate and package BlueOS extension
 on:
   push:
-    branches: [main, codex/blueos-precision-landing]
+    branches: [main, codex/blueos-precision-landing, codex/precision-landing-review]
     tags: ['v*']
   pull_request:
   workflow_dispatch:

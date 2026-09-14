@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 import socket
+import struct
+import sys
 import time
 
 import numpy as np
@@ -46,38 +48,59 @@ class LandingTargetEncoder:
 
 
 class RouterLink:
+    # Linux UAPI asm-generic/socket.h; NEW uses two int64 fields on both architectures.
+    # Python does not expose this constant on every supported build.
+    RX_TIMESTAMP_NS = 64  # SO_TIMESTAMPNS_NEW, Linux >= 5.1
+
     def __init__(self, config: OutputConfig):
         self.config = config
         self.allowed_ip = socket.gethostbyname(config.peer_host)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
+            if sys.platform != "linux":
+                raise OSError("MAVLink receive timestamps require Linux")
+            self.socket.setsockopt(socket.SOL_SOCKET, self.RX_TIMESTAMP_NS, 1)
             # Deliberately no SO_REUSEADDR: two senders must not share this endpoint.
             self.socket.bind((config.listen_host, config.listen_port))
             self.socket.setblocking(False)
         except Exception:
             self.socket.close()
             raise
-        self.parser = mavlink.MAVLink(None)
-        self.parser.robust_parsing = True
         self.peer = None
         self.last_heartbeat = None
         self.armed = None
+        self.seen_heartbeat = False
+        self.backlogged = False
         self.sent = 0
 
     def poll(self, now=None):
-        now = time.monotonic() if now is None else now
+        started = time.monotonic()
+        now = started if now is None else now
+        self.backlogged = False
         for _ in range(64):
             try:
-                data, peer = self.socket.recvfrom(65535)
+                data, ancillary, flags, peer = self.socket.recvmsg(65535, socket.CMSG_SPACE(16))
             except BlockingIOError:
                 break
-            if peer[0] != self.allowed_ip:
+            if peer[0] != self.allowed_ip or flags & (socket.MSG_TRUNC | socket.MSG_CTRUNC):
                 continue
-            # One datagram may contain several complete MAVLink messages. Do not mix
-            # bytes from unrelated endpoints into the same stream parser.
-            if self.peer is not None and peer != self.peer and self.fresh(now):
+            received_ns = None
+            for level, kind, value in ancillary:
+                if level == socket.SOL_SOCKET and kind == self.RX_TIMESTAMP_NS and len(value) >= 16:
+                    seconds, nanos = struct.unpack("=qq", value[:16])
+                    received_ns = seconds * 1_000_000_000 + nanos
+            if received_ns is None:
+                continue  # A datagram without a trustworthy receive age cannot authorize output.
+            # Advance the monotonic reference for every receive. Using the poll's
+            # start time with a later wall-clock sample can reverse packet order.
+            current = now + (time.monotonic() - started)
+            age = (time.time_ns() - received_ns) / 1_000_000_000
+            received = current - age
+            if self.peer is not None and peer != self.peer and self.fresh(current):
                 continue
-            parser = self.parser if peer == self.peer else mavlink.MAVLink(None)
+            # Routers send complete messages per datagram. Never join an old partial
+            # message to newer bytes and attribute the new packet's timestamp to it.
+            parser = mavlink.MAVLink(None)
             parser.robust_parsing = True
             try:
                 messages = parser.parse_buffer(data) or []
@@ -90,14 +113,23 @@ class RouterLink:
                     and msg.get_srcComponent() == mavlink.MAV_COMP_ID_AUTOPILOT1
                     and msg.autopilot == mavlink.MAV_AUTOPILOT_ARDUPILOTMEGA
                 ):
-                    self.peer, self.parser = peer, parser
-                    self.last_heartbeat = now
+                    self.seen_heartbeat = True
+                    if not 0 <= age <= self.config.heartbeat_timeout_s:
+                        continue
+                    if self.last_heartbeat is not None and received < self.last_heartbeat:
+                        continue
+                    self.peer = peer
+                    self.last_heartbeat = received
                     self.armed = bool(msg.base_mode & mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
+        else:
+            # A pending newer armed/lost-link state must not be hidden behind telemetry.
+            self.backlogged = True
 
     def fresh(self, now=None):
         now = time.monotonic() if now is None else now
         return (
             self.last_heartbeat is not None
+            and not self.backlogged
             and 0 <= now - self.last_heartbeat <= self.config.heartbeat_timeout_s
         )
 
@@ -118,6 +150,7 @@ class RouterLink:
             else (round(now - self.last_heartbeat, 2)),
             "peer": list(self.peer) if self.peer else None,
             "sent": self.sent,
+            "backlogged": self.backlogged,
         }
 
     def close(self):

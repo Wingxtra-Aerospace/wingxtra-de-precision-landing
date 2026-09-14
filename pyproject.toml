@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wingxtra-precision-landing"
-version = "1.0.0rc1"
+version = "1.0.0rc2"
 description = "Calibrated multi-tag landing target service and BlueOS extension"
 requires-python = ">=3.11"
 license = {text = "MIT"}

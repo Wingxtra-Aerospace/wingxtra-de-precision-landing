@@ -126,10 +126,11 @@ def test_api_calibration_required_configuration_lock_and_persistence(
             client.put("/api/config", headers=headers, json=service.config.model_dump()).status_code
             == 409
         )
-        service.link.armed = False
         changed = service.config.model_dump()
         changed["camera"]["lens_profile"] = "changed-lens"
-        assert client.put("/api/config", headers=headers, json=changed).status_code == 200
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as router:
+            router.sendto(heartbeat(armed=False), service.link.socket.getsockname())
+            assert client.put("/api/config", headers=headers, json=changed).status_code == 200
         assert not client.get("/api/status").json()["calibration"]["valid"]
         assert client.get("/api/board.svg").text.startswith("<svg")
         assert client.get("/api/chessboard.svg?columns=100").status_code == 409

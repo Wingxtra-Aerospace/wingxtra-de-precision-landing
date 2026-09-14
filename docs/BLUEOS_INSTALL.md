@@ -2,7 +2,7 @@
 
 ## Supported candidate deployment
 
-Use a 64-bit BlueOS host (ARM64 Raspberry Pi 4/5 or compatible ARM64 companion; x86-64 for development). The default container supports RTSP, HTTP MJPEG and explicitly mapped USB/V4L2 devices. It does not bundle Raspberry Pi libcamera/Picamera2, GPU acceleration or 32-bit ARM support. BlueOS 1.4 or newer provides the documented relative-path extension interface; validate the actual BlueOS release in the commissioning record.
+Use a 64-bit BlueOS host (ARM64 Raspberry Pi 4/5 or compatible ARM64 companion; x86-64 for development) with Linux 5.1 or newer. The heartbeat receiver requires Linux kernel receive timestamps and blocks output if they are unavailable. The default container supports RTSP, HTTP MJPEG and explicitly mapped USB/V4L2 devices. It does not bundle Raspberry Pi libcamera/Picamera2, GPU acceleration or 32-bit ARM support. BlueOS 1.4 or newer provides the documented relative-path extension interface; validate the actual BlueOS release in the commissioning record.
 
 The image is a release candidate. No aircraft receives an automatic installation, configuration change, arming command or flight-mode command.
 
@@ -20,8 +20,8 @@ An alternative is to build on the target architecture and publish to your own re
 
 ```bash
 docker build --target test -t wingxtra-pl-test .
-docker build --target final -t YOUR_REGISTRY/wingxtra-pl:1.0.0-rc.1 .
-docker push YOUR_REGISTRY/wingxtra-pl:1.0.0-rc.1
+docker build --target final -t YOUR_REGISTRY/wingxtra-pl:1.0.0-rc.2 .
+docker push YOUR_REGISTRY/wingxtra-pl:1.0.0-rc.2
 ```
 
 For an offline bench machine, load the workflow's matching architecture archive with `docker load -i wingxtra-pl-arm64.tar.gz`. This gives a local `wingxtra-pl:arm64` image; it is not an automatic Bazaar listing. The extension can then be run locally with the network and volume settings below, or pushed to an accessible registry for the BlueOS manager.
@@ -89,6 +89,10 @@ In **Landing board**, import the exact physical board's JSON. The supplied board
 
 For the supported ArduCopter companion backend, enable `PLND_ENABLED=1` and select `PLND_TYPE=1` (MAVLink). Reboot if required by the installed firmware. Verify these meanings on the actual firmware. The service sends only measurements; it does not write parameters.
 
-Keep camera yaw/orientation corrections consistent with the already-applied BODY_FRD rotation. Enter the physical camera lever arm in `PLND_CAM_POS_X/Y/Z`. Review the installed firmware's estimator, latency, acquisition, loss/retry and descent behavior. Do not blindly copy another aircraft's tuning. Follow [COMMISSIONING.md](COMMISSIONING.md) before operational flight or enabling publish-on-restart.
+The service already applies the complete camera-to-BODY_FRD rotation. Keep `PLND_YAW_ALIGN=0` and the downward/default `PLND_ORIENT=25` where that parameter is exposed by the installed firmware; an additional rotation would rotate the vector twice. Enter the physical camera lever arm in `PLND_CAM_POS_X/Y/Z`. Review the installed firmware's estimator, latency, acquisition, loss/retry and descent behavior. Verify these meanings on the exact firmware and follow [COMMISSIONING.md](COMMISSIONING.md) before operational flight or enabling publish-on-restart.
+
+**QuadPlane:** receiving this sensor's MAVLink message does not by itself establish that landing corrections are enabled. ArduPilot's official [Plane precision-landing applet instructions](https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Scripting/applets/plane_precland.md) describe the flight-controller-side `plane_precland.lua` integration. Follow the version-matched upstream instructions, confirm scripting/precision-landing support in the actual firmware build, and validate QLOITER/QLAND/QRTL/AUTO behavior separately. This extension does not install that applet or change flight-controller parameters.
+
+After the first autopilot heartbeat, setup changes require a fresh disarmed heartbeat. Following an endpoint change, wait for telemetry on the new endpoint. If a wrong endpoint prevents recovery, stop work, physically verify the aircraft is disarmed on the bench, and correct persistent configuration or restart the extension there. Restart is not a way to bypass an armed-state lock during flight.
 
 Reference: [BlueOS extension packaging and web interface](https://blueos.cloud/docs/stable/development/extensions/), [ArduPilot precision landing](https://ardupilot.org/copter/docs/precision-landing-and-loiter.html), [MAVLink landing target](https://mavlink.io/en/services/landing_target.html).

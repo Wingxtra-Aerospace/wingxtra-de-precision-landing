@@ -2,7 +2,7 @@
 
 A companion-computer service that estimates the **shared landing-board origin from multiple AprilTags**, using calibrated camera intrinsics and the physical board dimensions. It sends MAVLink 2 `LANDING_TARGET` position measurements to ArduPilot through an onboard router.
 
-**Version 1.0.0-rc.1 is a release candidate for integration and aircraft validation.** Automated software tests do not establish flight qualification. This repository includes the extension, calibration interface, tests, and a commissioning procedure; no camera/aircraft combination is yet listed as flight validated.
+**Version 1.0.0-rc.2 is a release candidate for integration and aircraft validation.** Automated software tests do not establish flight qualification. This repository includes the extension, calibration interface, tests, and a commissioning procedure; no camera/aircraft combination is yet listed as flight validated.
 
 ## What is included
 
@@ -50,7 +50,7 @@ Open `http://<companion-ip>:8077/`. Set up the camera and UDP endpoint, calibrat
 
 ## Native development / Raspberry Pi
 
-Python 3.11 or newer:
+Python 3.11 or newer on Linux 5.1 or newer (kernel UDP receive timestamps are required):
 
 ```bash
 python3 -m venv .venv
@@ -74,8 +74,8 @@ PnP supplies a distance, so the vision measurement does not inherently require a
 
 ## Validation and provenance
 
-See [architecture and failure behavior](docs/ARCHITECTURE_OVERVIEW.md), [commissioning and test evidence](docs/COMMISSIONING.md), and [changes from the earlier implementation](docs/CHANGELOG.md).
+See [architecture and failure behavior](docs/ARCHITECTURE_OVERVIEW.md), [commissioning and test evidence](docs/COMMISSIONING.md), [the second code review](docs/SECOND_REVIEW.md), and [changes from the earlier implementation](docs/CHANGELOG.md).
 
-The extension follows the [BlueOS extension interface](https://blueos.cloud/docs/stable/development/extensions/) and [MAVLink landing-target protocol](https://mavlink.io/en/services/landing_target.html). ArduPilot integration is targeted at Copter's companion precision-landing backend. Tests cover decoded packet fields, rendered multi-tag images, calibration, UDP transport and service behavior. DataBus framing is checked against the [DroneEngage client protocol](https://github.com/DroneEngage/droneengage_databus/tree/main/python); live DroneEngage forwarding must also be verified on the installed version.
+The extension follows the [BlueOS extension interface](https://blueos.cloud/docs/stable/development/extensions/) and [MAVLink landing-target protocol](https://mavlink.io/en/services/landing_target.html). ArduPilot integration uses the MAVLink precision-landing backend. QuadPlane requires additional version-matched flight-controller integration; see [installation](docs/BLUEOS_INSTALL.md). Tests cover decoded packet fields, rendered multi-tag images, calibration, UDP transport and service behavior. DataBus framing is checked against the [DroneEngage client protocol](https://github.com/DroneEngage/droneengage_databus/tree/main/python); live DroneEngage forwarding must also be verified on the installed version.
 
 MIT licensed. The implementation does not incorporate code from the GPL-licensed BlueOS community precision-landing extension.

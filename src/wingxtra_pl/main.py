@@ -36,10 +36,10 @@ def main():
         Config.model_validate(yaml.safe_load(args.config.read_text())) if args.config else None
     )
     if (
-        args.databus_host
-        or args.databus_port
-        or os.getenv("DATABUS_HOST")
-        or os.getenv("DATABUS_PORT")
+        args.databus_host is not None
+        or args.databus_port is not None
+        or os.getenv("DATABUS_HOST") is not None
+        or os.getenv("DATABUS_PORT") is not None
     ):
         incoming = incoming or service.config.model_copy(deep=True)
         host, port = resolve_databus_endpoint(args, {"mavlink_out": incoming.output.model_dump()})

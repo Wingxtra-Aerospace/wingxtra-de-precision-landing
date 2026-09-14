@@ -3,8 +3,12 @@ const $ = (id) => document.getElementById(id);
 let config,
   board,
   lastStatus,
+  lastStatusAt = 0,
   previewBusy = { preview: false, "cal-preview": false },
   activeTab = "overview";
+const pendingCalibration = new Set();
+const setupFields =
+  "#camera-form input,#camera-form select,#camera-form textarea,#camera-form button,#connection-form input,#connection-form select,#connection-form textarea,#connection-form button,#board-save,#board-import,#cal-start,#cal-import";
 const titles = {
   overview: "Landing overview",
   camera: "Camera & mount",
@@ -24,6 +28,7 @@ async function api(path, method = "GET", body) {
     headers: { "Content-Type": "application/json", "X-Wingxtra-Request": "1" },
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
+    signal: method === "GET" ? AbortSignal.timeout(3000) : undefined,
   });
   if (!response.ok) {
     let error;
@@ -188,6 +193,8 @@ for (const [id, command] of [
   $(id).addEventListener("click", () =>
     action(async () => {
       const button = $(id);
+      if (pendingCalibration.has(id)) return;
+      pendingCalibration.add(id);
       button.disabled = true;
       try {
         const result = await api(
@@ -207,7 +214,8 @@ for (const [id, command] of [
         );
         await refresh();
       } finally {
-        button.disabled = false;
+        pendingCalibration.delete(id);
+        await refresh();
       }
     }),
   );
@@ -249,9 +257,10 @@ $("board-save").addEventListener("click", () =>
 async function refresh() {
   const s = await api("status");
   lastStatus = s;
+  lastStatusAt = performance.now();
   const m = s.measurement;
   const fresh = m && m.current_age_ms <= config.quality.max_frame_age_s * 1000;
-  const valid = fresh && m.accepted;
+  const valid = fresh && m.accepted && s.camera.connected && s.engine_alive;
   text(
     "mode",
     s.dry_run
@@ -348,9 +357,13 @@ async function refresh() {
     "cal-guidance",
     session?.guidance ?? "Start a session to capture calibration views.",
   );
-  $("cal-capture").disabled = !session;
-  $("cal-solve").disabled = !session?.ready;
-  $("cal-cancel").disabled = !session;
+  const locked = Boolean(s.setup_lock_reason);
+  $("cal-capture").disabled =
+    locked || pendingCalibration.has("cal-capture") || !session;
+  $("cal-solve").disabled =
+    locked || pendingCalibration.has("cal-solve") || !session?.ready;
+  $("cal-cancel").disabled =
+    locked || pendingCalibration.has("cal-cancel") || !session;
   text(
     "board-detail",
     `${s.board.tags} tags · tag36h11 · IDs ${s.board.ids.join(", ")}`,
@@ -358,12 +371,9 @@ async function refresh() {
   const diagnostics = { ...s };
   delete diagnostics.events;
   text("diagnostic-json", JSON.stringify(diagnostics, null, 2));
-  const locked = s.mode === "publish" || s.connection.armed === true;
   document
-    .querySelectorAll(
-      "#camera-form input,#camera-form select,#camera-form textarea,#camera-form button,#connection-form input,#connection-form select,#connection-form textarea,#connection-form button,#board-save,#board-import,#cal-start,#cal-import",
-    )
-    .forEach((el) => (el.disabled = locked));
+    .querySelectorAll(setupFields)
+    .forEach((el) => (el.disabled = locked || pendingCalibration.has(el.id)));
 }
 for (const [image, empty] of [
   ["preview", "preview-empty"],
@@ -378,9 +388,12 @@ for (const [image, empty] of [
   });
   $(image).addEventListener("error", () => {
     previewBusy[image] = false;
+    $(image).hidden = true;
+    $(empty).hidden = false;
   });
 }
 setInterval(() => {
+  if (lastStatus && performance.now() - lastStatusAt > 1500) disconnected();
   const image =
     activeTab === "overview"
       ? "preview"
@@ -392,18 +405,40 @@ setInterval(() => {
     $(image).src = "api/preview.jpg?t=" + Date.now();
   }
 }, 250);
+function disconnected() {
+  lastStatus = undefined;
+  text("mode", "Disconnected");
+  $("mode").classList.remove("live");
+  $("publish-button").disabled = true;
+  for (const image of ["preview", "cal-preview"]) {
+    $(image).hidden = true;
+    $(image + "-empty").hidden = false;
+  }
+  for (const id of [
+    "position-x",
+    "position-y",
+    "position-z",
+    "distance",
+    "reprojection",
+    "packet-count",
+  ])
+    text(id, "—");
+  text("camera-state", "Unknown");
+  text("camera-detail", "Extension disconnected");
+  text("fc-state", "Unknown");
+  text("fc-detail", "No current telemetry");
+  text("frame-age", "NO STATUS");
+  text("tag-ids", "No current tags");
+  text("target-reason", "Extension disconnected; measurements unavailable");
+  document
+    .querySelectorAll(setupFields + ",#cal-capture,#cal-solve,#cal-cancel")
+    .forEach((el) => (el.disabled = true));
+}
 async function poll() {
   try {
     await refresh();
   } catch (error) {
-    text("mode", "Disconnected");
-    $("mode").classList.remove("live");
-    $("publish-button").disabled = true;
-    $("preview").hidden = true;
-    $("preview-empty").hidden = false;
-    $("cal-preview").hidden = true;
-    $("cal-preview-empty").hidden = false;
-    text("target-reason", "Extension disconnected; measurements unavailable");
+    disconnected();
   } finally {
     setTimeout(poll, 700);
   }
