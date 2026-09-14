@@ -153,9 +153,7 @@ class RouterLink:
             # A pending newer armed/lost-link state must not be hidden behind telemetry.
             self.backlogged = True
 
-    def gimbal_attitude(
-        self, frame_monotonic, *, component_id=0, device_id=0, max_skew_s=0.15
-    ):
+    def gimbal_attitude(self, frame_monotonic, *, component_id=0, device_id=0, max_skew_s=0.15):
         candidates = [
             sample
             for sample in self.gimbal_attitudes

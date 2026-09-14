@@ -14,6 +14,8 @@ header, provenance and GPL notice when redistributing it.
 - `WXPL_CAM_MODE=1`: gimbal camera; measured mount pitch must be inside
   `WXPL_MNT_TOL` of `WXPL_MNT_PIT` before a precision target can change
   navigation.
+  The Lua mount binding returns roll, pitch and yaw directly, with `nil` when
+  unavailable. Readiness uses measured pitch; yaw cannot substitute for pitch.
 - `WXPL_MNT_CTRL=0` (default): another declared controller/operator positions
   the gimbal.
 - `WXPL_MNT_CTRL=1`: the applet repeatedly commands the selected mount to the
@@ -34,3 +36,11 @@ modes and recovery policy must be verified for the selected ArduPlane release.
 This repository does not yet claim SITL, bench, HIL or flight acceptance for the
 applet. Use the project's validation matrix and record the exact firmware,
 applet hash, extension image, parameters and evidence.
+
+## Software regression check
+
+Run `lua5.3 tests/test_quadplane_applet.lua` from the repository root. CI runs
+the same harness against the actual applet with firmware API stubs, covering
+fixed-mode independence, pitch/yaw selection, missing attitude and optional
+mount commands. These checks do not establish installed-firmware or SITL
+acceptance.

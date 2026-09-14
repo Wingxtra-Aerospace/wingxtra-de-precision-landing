@@ -35,6 +35,14 @@ Append dated entries; retain earlier results and decisions. Current task states 
 - Local validation: `ruff check --select F841 src tests` passed; `python -m pytest -q tests/test_gimbal_modes.py::test_earth_frame_status_uses_delta_yaw_to_recover_vehicle_frame` reported **1 passed**. `ruff check src tests` still reports the separate unused NumPy import (F401) in the same file.
 - G03 remains IN REVIEW. This fixes one lint blocker without changing test assertions or runtime behaviour; full CI, applet review, SITL, bench and flight acceptance remain outstanding.
 
+## 2026-09-14 — F02/G03/G04: clear lint and applet validation blockers
+
+- Removed the unused `import numpy as np` from `tests/test_gimbal_modes.py` in [PR #36](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36), starting from `e8b19575bcf404a59765b447f78ad2d0dc369ad2`. The earlier `half` fix is retained.
+- Applied the existing Ruff and Prettier formatters to the six files rejected by formatting checks, without changing their behaviour.
+- Corrected `mount:get_attitude_euler` unpacking using the [pinned upstream Lua API declaration](https://github.com/ArduPilot/ardupilot/blob/9456449a442617b2af1c3132b64c3120f1694583/libraries/AP_Scripting/docs/docs.lua): it returns roll, pitch and yaw without a success flag. The prior code could mistake yaw for pitch. Added an executable Lua API-stub harness and a CI step for it.
+- Local validation: `ruff check src tests`, `ruff format --check src tests`, `node --check src/wingxtra_pl/static/app.js` and `npm run format:check` passed. `python -m pytest -q` reported **78 passed** with two dependency deprecation warnings. The existing browser smoke test passed. `luatex --luaonly tests/test_quadplane_applet.lua` ran Lua 5.3 and reported **12 scenarios passed**; the same harness failed against parent `e8b19575bcf404a59765b447f78ad2d0dc369ad2` on the downward-pitch case, confirming it detects the return-order defect.
+- F02/G03/G04 remain IN REVIEW. Full CI/container results and independent applet review remain pending; Lua API stubs do not establish firmware/SITL, bench or flight acceptance.
+
 ## Entry template
 
 Copy for the next meaningful change:

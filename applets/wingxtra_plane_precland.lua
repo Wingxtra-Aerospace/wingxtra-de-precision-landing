@@ -116,8 +116,9 @@ local function camera_ready()
         mount:set_angle_target(instance, 0, pitch_target, 0, false)
     end
 
-    local ok, _, pitch_deg, _ = mount:get_attitude_euler(instance)
-    local ready = ok and pitch_deg ~= nil
+    -- The Lua binding returns roll, pitch, yaw (or nil), without a success flag.
+    local roll_deg, pitch_deg = mount:get_attitude_euler(instance)
+    local ready = roll_deg ~= nil and pitch_deg ~= nil
         and math.abs(pitch_deg - pitch_target) <= WXPL_MNT_TOL:get()
     if ready ~= camera_ready_last then
         camera_ready_last = ready

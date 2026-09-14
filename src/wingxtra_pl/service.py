@@ -176,9 +176,7 @@ class LandingService:
             "component_id": sample.component_id,
             "device_id": sample.device_id,
             "age_ms": round(age * 1000, 1),
-            "frame_skew_ms": round(
-                abs(sample.received_monotonic - frame.monotonic) * 1000, 1
-            ),
+            "frame_skew_ms": round(abs(sample.received_monotonic - frame.monotonic) * 1000, 1),
             "downward_error_deg": round(downward_error, 2),
             "flags": sample.flags,
             "failure_flags": sample.failure_flags,

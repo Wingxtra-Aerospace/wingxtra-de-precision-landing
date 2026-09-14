@@ -80,9 +80,7 @@ class GimbalConfig(Model):
         if not np.allclose(r.T @ r, np.eye(3), atol=1e-5) or not np.isclose(
             np.linalg.det(r), 1, atol=1e-5
         ):
-            raise ValueError(
-                "Camera-to-gimbal rotation must be orthonormal with determinant +1"
-            )
+            raise ValueError("Camera-to-gimbal rotation must be orthonormal with determinant +1")
         return self
 
 

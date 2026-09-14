@@ -107,7 +107,9 @@ function applyCameraProfile() {
     if (profile[key] !== undefined) $(field).value = profile[key];
   $("camera-mode").value = profile.recommended_mode || "gimbal";
   toggleGimbalFields();
-  notice("Profile defaults applied. Calibrate and bench-test this exact stream before publishing.");
+  notice(
+    "Profile defaults applied. Calibrate and bench-test this exact stream before publishing.",
+  );
 }
 $("camera-profile").addEventListener("change", applyCameraProfile);
 $("camera-mode").addEventListener("change", toggleGimbalFields);
@@ -149,11 +151,7 @@ function populate() {
     null,
     2,
   );
-  $("camera-to-gimbal").value = JSON.stringify(
-    g.camera_to_gimbal,
-    null,
-    2,
-  );
+  $("camera-to-gimbal").value = JSON.stringify(g.camera_to_gimbal, null, 2);
   $("quality-json").value = JSON.stringify(config.quality, null, 2);
   toggleGimbalFields();
 }

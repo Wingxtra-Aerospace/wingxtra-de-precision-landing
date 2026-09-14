@@ -1,7 +1,6 @@
 import math
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from wingxtra_pl.camera_profiles import camera_profiles
@@ -40,9 +39,7 @@ def test_fixed_and_gimbal_modes_preserve_intrinsic_calibration_identity():
 
 def test_camera_profiles_are_connection_presets_not_calibration_data():
     profiles = camera_profiles()
-    assert {"custom", "siyi-a8", "siyi-zr10", "siyi-zt6-rgb", "siyi-zt6-ir"} <= set(
-        profiles
-    )
+    assert {"custom", "siyi-a8", "siyi-zr10", "siyi-zt6-rgb", "siyi-zt6-ir"} <= set(profiles)
     assert profiles["siyi-a8"]["recommended_mode"] == "gimbal"
     assert "camera_matrix" not in profiles["siyi-a8"]
 
