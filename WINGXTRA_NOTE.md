@@ -1,26 +1,12 @@
-# WINGXTRA NOTE (MANDATORY)
+# Wingxtra runtime requirements
 
-**Per-drone camera calibration is mandatory.**
+- Per-aircraft, per-camera calibration is mandatory before target output. The BlueOS service stores a validated `camera.json` in its persistent data directory. Never commit aircraft calibration data.
+- Calibration must match the actual image resolution, source, camera identity and fixed lens profile. Changing focus, cropping, stabilization, zoom, camera or video geometry requires recalibration.
+- The service never opens a physical MAVLink serial port. On BlueOS, use a local UDP endpoint provided by the BlueOS router. On a native DroneEngage installation, the advanced DataBus transport may be used with a separate raw telemetry feed for heartbeat supervision.
+- Only one landing-target publisher may be active. The flight controller's link has one owner.
+- AprilTag family is `tag36h11` / `DICT_APRILTAG_36h11`.
+- Position messages use `MAV_FRAME_BODY_FRD`, `position_valid=1`, and a positive camera-to-board-origin distance.
+- Camera translation belongs in ArduPilot `PLND_CAM_POS_*`; the companion applies only the configured camera-to-body rotation.
+- Complete the commissioning record before operational use. Software test results alone do not establish flight qualification.
 
-**This project requires `camera.yaml` at runtime and will fail fast if it is missing or if its
-resolution does not match `config.yaml` camera width/height.**
-
-**`camera.yaml` is aircraft-specific calibration data and MUST NOT be committed to git.**
-
-## Runtime / integration non-negotiables
-
-- **Single Pi / single FC link:** this module must **NOT** open `/dev/serial0` or any physical
-  MAVLink serial port.
-- **INTERNAL MAVLink only:** this module sends `LANDING_TARGET` to DroneEngage via DataBus;
-  DroneEngage forwards to FC.
-- **AprilTag family:** use OpenCV ArUco `DICT_APRILTAG_36h11` (matching Landmark `tag36h11`).
-- **No rangefinder mode:** use PnP-derived `x,y,z` in meters with
-  `LANDING_TARGET.position_valid = 1`.
-
-## If calibration is missing
-
-Run:
-
-```bash
-python3 tools/calibrate_camera.py
-```
+The former `camera.yaml` requirement and DataBus-only deployment instructions applied to the earlier native prototype. The current release supports the user-requested BlueOS integration and a browser calibration workflow. Use [README.md](README.md) and [docs/BLUEOS_INSTALL.md](docs/BLUEOS_INSTALL.md).

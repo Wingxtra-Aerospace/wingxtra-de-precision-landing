@@ -1,36 +1,45 @@
+# Schema version 1. Import with wingxtra-pl --config config.yaml
+schema_version: 1
 camera:
-  index: 0
+  kind: rtsp
+  source: rtsp://127.0.0.1:8554/landing
+  camera_id: landing-camera
+  lens_profile: fixed-focus
   width: 1280
   height: 720
   fps: 30
-
-landing_target:
-  layout_json: landing-target.json
-  april_tag_family: tag36h11
-  opencv_dictionary: DICT_APRILTAG_36h11
-  target_num: 0
-
-mavlink_out:
-  # DroneEngage-first: send INTERNAL MAVLink via DroneEngage DataBus
-  # (single FC port, no serial contention)
-  mode: droneengage_databus
-  # sendBMSG metadata command for internal MAVLink payload (configurable)
-  internal_mavlink_cmd: m
-  # Wire these to your DroneEngage DataBus config:
+mount:
+  camera_to_body:
+  - - 0
+    - -1
+    - 0
+  - - 1
+    - 0
+    - 0
+  - - 0
+    - 0
+    - 1
+output:
+  mode: udp
+  listen_host: 127.0.0.1
+  listen_port: 14771
+  peer_host: 127.0.0.1
+  target_system: 1
+  source_component: 193
+  heartbeat_timeout_s: 3.0
+  send_hz: 20
   databus_host: 127.0.0.1
-  # Must be set per deployment (CLI/env/config). Keep null in repository defaults.
-  databus_port: null
-
-mavlink:
-  send_hz: 10
-
-stability:
-  # Reject pose when reprojection RMSE exceeds threshold.
-  max_reproj_rmse_px: 8.0
-  # EMA smoothing factor in [0,1], higher = more responsive.
-  ema_alpha: 0.4
-  # Reset tracking state when target unseen beyond timeout.
-  stale_timeout_ms: 1000
-
-frames:
-  cam_to_body_rpy_deg: [0.0, 0.0, 0.0]
+  databus_port: 60000
+  databus_module_key: wingxtra-precision-landing
+quality:
+  max_frame_age_s: 0.25
+  max_reprojection_px: 3
+  min_tag_edge_px: 12
+  min_tags: 1
+  min_distance_m: 0.1
+  max_distance_m: 30
+  reacquire_frames: 3
+  max_relative_speed_m_s: 6
+  jump_allowance_m: 0.15
+  track_reset_s: 0.5
+startup_mode: stopped

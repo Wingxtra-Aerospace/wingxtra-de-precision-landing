@@ -29,3 +29,9 @@ calibration/
 calib_*.png
 captures/
 debug_frames/
+data/
+camera*.json
+.pytest_cache/
+.ruff_cache/
+test-results/
+node_modules/

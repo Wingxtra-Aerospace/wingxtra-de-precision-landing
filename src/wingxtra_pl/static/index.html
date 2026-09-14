@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wingxtra · Precision Landing</title>
+    <script>
+      if (!location.pathname.endsWith("/"))
+        location.replace(location.pathname + "/" + location.search);
+    </script>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script src="assets/app.js" defer></script>
+  </head>
+  <body>
+    <aside>
+      <a class="brand" href="#overview"
+        ><span class="brand-mark">W</span
+        ><span>WINGXTRA<small>PRECISION LANDING</small></span></a
+      >
+      <div class="nav-label">WORKSPACE</div>
+      <nav aria-label="Main navigation">
+        <button data-tab="overview" class="selected">
+          Overview <span>01</span>
+        </button>
+        <button data-tab="camera">Camera & mount <span>02</span></button>
+        <button data-tab="calibration">Calibration <span>03</span></button>
+        <button data-tab="board">Landing board <span>04</span></button>
+        <button data-tab="connection">Connection <span>05</span></button>
+        <button data-tab="diagnostics">Diagnostics <span>06</span></button>
+      </nav>
+      <div class="aside-footer">
+        <span class="status-dot"></span> Onboard processing<small id="version"
+          >Release candidate</small
+        >
+      </div>
+    </aside>
+    <main>
+      <header>
+        <div>
+          <div class="eyebrow">FLIGHT SYSTEMS / VISION</div>
+          <h1 id="page-title">Landing overview</h1>
+        </div>
+        <div class="pill" id="mode">Connecting</div>
+      </header>
+      <div id="notice" role="alert" hidden></div>
+      <section id="overview" class="tab active">
+        <div class="intro">
+          <div>
+            <h2>See the target. Know the position.</h2>
+            <p>
+              Calibrated multi-tag tracking, processed on your companion
+              computer.
+            </p>
+          </div>
+          <button class="secondary" id="preview-button">Start preview</button>
+        </div>
+        <div class="metrics">
+          <article>
+            <label>CAMERA</label><strong id="camera-state">Offline</strong
+            ><small id="camera-detail">Start preview to connect</small>
+          </article>
+          <article>
+            <label>CALIBRATION</label><strong id="cal-state">Required</strong
+            ><small id="cal-detail">Calibrate the installed camera</small>
+          </article>
+          <article>
+            <label>FLIGHT CONTROLLER</label
+            ><strong id="fc-state">Waiting</strong
+            ><small id="fc-detail">No heartbeat received</small>
+          </article>
+          <article>
+            <label>TARGET OUTPUT</label><strong id="packet-count">0</strong
+            ><small>LANDING_TARGET packets sent</small>
+          </article>
+        </div>
+        <div class="overview-grid">
+          <article class="panel video-panel">
+            <div class="panel-heading">
+              <h3>Live camera</h3>
+              <span id="frame-age">—</span>
+            </div>
+            <div class="video-wrap">
+              <img id="preview" alt="Live camera with detected tags" hidden />
+              <div id="preview-empty">
+                <div class="crosshair">⊕</div>
+                <h3>Waiting for the camera</h3>
+                <p>Set your camera source, then start preview.</p>
+              </div>
+              <span class="video-label"
+                >BOARD ORIGIN · FORWARD / RIGHT / DOWN</span
+              >
+            </div>
+            <div class="video-footer">
+              <span id="target-reason">Output is stopped</span
+              ><span id="tag-ids">No tags</span>
+            </div>
+          </article>
+          <article class="panel position-panel">
+            <div class="panel-heading">
+              <h3>Target position</h3>
+              <span class="unit">METRES</span>
+            </div>
+            <div class="axis">
+              <label><i>X</i> Forward</label><strong id="position-x">—</strong>
+            </div>
+            <div class="axis">
+              <label><i>Y</i> Right</label><strong id="position-y">—</strong>
+            </div>
+            <div class="axis">
+              <label><i>Z</i> Down</label><strong id="position-z">—</strong>
+            </div>
+            <div class="quality-row">
+              <span>Camera-to-origin distance</span><b id="distance">—</b>
+            </div>
+            <div class="quality-row">
+              <span>Reprojection RMS</span><b id="reprojection">—</b>
+            </div>
+            <div class="output-controls">
+              <button id="publish-button">Enable MAVLink output</button
+              ><button id="stop-button" class="danger">
+                Stop output & camera</button
+              ><small
+                >Enabling output sends target measurements. It does not arm the
+                aircraft or change flight modes.</small
+              >
+            </div>
+          </article>
+        </div>
+        <p class="footnote">
+          Default mount: downward camera, image top toward the nose. Verify all
+          three position signs and measured distances before flight.
+        </p>
+      </section>
+      <section id="camera" class="tab">
+        <div class="intro">
+          <div>
+            <h2>Match the camera to the aircraft</h2>
+            <p>
+              Calibration belongs to this exact source, lens and image geometry.
+            </p>
+          </div>
+        </div>
+        <form id="camera-form" class="panel form-panel">
+          <div class="form-grid">
+            <label
+              >Source type<select id="camera-kind">
+                <option value="rtsp">RTSP stream</option>
+                <option value="mjpeg">HTTP MJPEG stream</option>
+                <option value="v4l2">USB / V4L2 camera</option>
+                <option value="picamera2">
+                  Picamera2 · native installation
+                </option>
+              </select></label
+            >
+            <label
+              >Camera source<input
+                id="camera-source"
+                required
+                spellcheck="false"
+            /></label>
+            <label
+              >Camera identity<input
+                id="camera-id"
+                required
+                maxlength="80" /></label
+            ><label
+              >Fixed lens / focus profile<input
+                id="camera-lens"
+                required
+                maxlength="80"
+            /></label>
+            <label
+              >Width, pixels<input
+                id="camera-width"
+                type="number"
+                min="320"
+                max="3840"
+                required /></label
+            ><label
+              >Height, pixels<input
+                id="camera-height"
+                type="number"
+                min="240"
+                max="2160"
+                required
+            /></label>
+            <label
+              >Requested frame rate<input
+                id="camera-fps"
+                type="number"
+                min="5"
+                max="60"
+                required
+            /></label>
+          </div>
+          <h3>Camera-to-body rotation</h3>
+          <p>
+            OpenCV camera axes → aircraft forward, right, down. The default is
+            for a downward camera with image top toward the nose. Enter a proper
+            3×3 rotation matrix.
+          </p>
+          <textarea
+            id="mount-matrix"
+            rows="4"
+            spellcheck="false"
+            aria-label="Camera to body rotation matrix"
+          ></textarea>
+          <p class="help">
+            Camera position offsets belong in ArduPilot PLND_CAM_POS_X/Y/Z. Do
+            not add them to this rotation. Configure fixed focus and disable
+            digital stabilization or variable cropping at the camera.
+          </p>
+          <button type="submit">Save camera & mount</button>
+        </form>
+      </section>
+      <section id="calibration" class="tab">
+        <div class="intro">
+          <div>
+            <h2>Calibrate through the flight camera</h2>
+            <p>
+              Capture varied chessboard views using the same video path used for
+              landing.
+            </p>
+          </div>
+          <a
+            class="button secondary"
+            href="api/calibration"
+            download="camera.json"
+            >Export calibration</a
+          >
+        </div>
+        <div class="two-column">
+          <article class="panel form-panel">
+            <h3>1. Prepare the chessboard</h3>
+            <div class="form-grid">
+              <label
+                >Inner corners · columns<input
+                  id="cal-columns"
+                  type="number"
+                  value="9"
+                  min="3"
+                  max="15" /></label
+              ><label
+                >Inner corners · rows<input
+                  id="cal-rows"
+                  type="number"
+                  value="6"
+                  min="3"
+                  max="15" /></label
+              ><label
+                >Measured square size, mm<input
+                  id="cal-square"
+                  type="number"
+                  value="24.5"
+                  min="5"
+                  max="150"
+                  step="0.1"
+              /></label>
+            </div>
+            <a
+              id="chessboard-download"
+              class="text-link"
+              href="api/chessboard.svg"
+              download="chessboard.svg"
+              >Download printable chessboard ↗</a
+            >
+            <p class="help">
+              Print at 100% scale on a flat backing. Measure an actual square;
+              enter its size above. Keep the lens focus and resolution fixed.
+            </p>
+            <button id="cal-start">Start calibration session</button>
+            <h3>2. Capture different views</h3>
+            <p>
+              Move the board across the image, closer and farther away, and tilt
+              it around both axes.
+            </p>
+            <div class="cal-camera">
+              <img
+                id="cal-preview"
+                alt="Live chessboard calibration camera"
+                hidden
+              />
+              <p id="cal-preview-empty">
+                Start a session to preview the camera here.
+              </p>
+            </div>
+            <div class="button-row">
+              <button id="cal-capture" class="secondary">
+                Capture current view</button
+              ><button id="cal-cancel" class="quiet">Cancel session</button>
+            </div>
+          </article>
+          <article class="panel form-panel">
+            <h3>Session quality</h3>
+            <div class="cal-progress">
+              <strong id="cal-views">0</strong
+              ><span>views captured / 15 minimum</span>
+            </div>
+            <progress id="cal-progress" value="0" max="15"></progress>
+            <div class="quality-row">
+              <span>Image regions covered</span><b id="cal-cells">0 / 4</b>
+            </div>
+            <div class="quality-row">
+              <span>Near / far size ratio</span><b id="cal-scale">0 / 1.5</b>
+            </div>
+            <div class="quality-row">
+              <span>Tilted views</span><b id="cal-tilts">0 / 3</b>
+            </div>
+            <p id="cal-guidance">
+              Start a session to capture calibration views.
+            </p>
+            <button id="cal-solve">Solve & save calibration</button>
+            <p class="help">
+              Accepted results require overall RMS ≤ 1 pixel and every view ≤ 2
+              pixels. This is a fit-quality check; verify distance accuracy
+              separately.
+            </p>
+            <hr />
+            <h3>Restore a calibration</h3>
+            <label class="file-label"
+              >Import this extension’s camera.json export<input
+                type="file"
+                id="cal-import"
+                accept="application/json,.json"
+            /></label>
+            <p class="help">
+              Imports must match the camera identity, source, lens profile and
+              resolution. Legacy YAML calibrations need a new calibration
+              session.
+            </p>
+          </article>
+        </div>
+      </section>
+      <section id="board" class="tab">
+        <div class="intro">
+          <div>
+            <h2>One board. One landing origin.</h2>
+            <p>
+              All visible known tags contribute to the same physical target.
+            </p>
+          </div>
+          <a
+            class="button secondary"
+            href="api/board.svg"
+            download="landing-board.svg"
+            >Download board SVG</a
+          >
+        </div>
+        <div class="two-column">
+          <article class="panel form-panel">
+            <img
+              id="board-preview"
+              class="board-preview"
+              src="api/board.svg"
+              alt="Configured AprilTag landing board"
+            />
+            <p class="help">
+              Print at 100% and measure the detection corners. The downloaded
+              board uses object_points in metres; the white margin is outside
+              those corners.
+            </p>
+          </article>
+          <article class="panel form-panel">
+            <h3>Board definition</h3>
+            <p id="board-detail">Loading board…</p>
+            <label class="file-label"
+              >Import Landmark-compatible landing-target.json<input
+                id="board-import"
+                type="file"
+                accept="application/json,.json" /></label
+            ><textarea
+              id="board-json"
+              rows="16"
+              spellcheck="false"
+              aria-label="Board JSON"
+            ></textarea>
+            <div class="button-row">
+              <button id="board-save">Validate & save board</button
+              ><a
+                class="text-link"
+                href="api/board"
+                download="landing-target.json"
+                >Export JSON ↗</a
+              >
+            </div>
+            <p class="help">
+              Use tag36h11. Each ID must be unique. object_points contains the
+              four detection corners in metres, ordered as the tag’s top-left,
+              top-right, bottom-right, bottom-left in its unrotated image. The
+              shared coordinate origin is the landing point.
+            </p>
+          </article>
+        </div>
+      </section>
+      <section id="connection" class="tab">
+        <div class="intro">
+          <div>
+            <h2>Connect through the onboard router</h2>
+            <p>
+              The flight-controller serial link remains owned by BlueOS or
+              DroneEngage.
+            </p>
+          </div>
+        </div>
+        <form id="connection-form" class="panel form-panel">
+          <p class="callout">
+            In BlueOS MAVLink Endpoints, add a UDP client destination
+            <b>127.0.0.1:14771</b> (or your selected address and port). Incoming
+            autopilot heartbeats establish the return path.
+          </p>
+          <div class="form-grid">
+            <label
+              >Output transport<select id="output-mode">
+                <option value="udp">BlueOS / MAVLink router UDP</option>
+                <option value="droneengage_databus">
+                  DroneEngage DataBus · advanced
+                </option>
+              </select></label
+            >
+            <label
+              >Local listen address<input id="listen-host" required /></label
+            ><label
+              >Local listen port<input
+                id="listen-port"
+                type="number"
+                min="1024"
+                max="65535"
+                required /></label
+            ><label>Allowed router host<input id="peer-host" required /></label>
+            <label
+              >Autopilot system ID<input
+                id="target-system"
+                type="number"
+                min="1"
+                max="255"
+                required /></label
+            ><label
+              >Extension component ID<input
+                id="source-component"
+                type="number"
+                min="2"
+                max="255"
+                required
+            /></label>
+            <label
+              >Maximum target rate, Hz<input
+                id="send-hz"
+                type="number"
+                min="5"
+                max="50"
+                required /></label
+            ><label
+              >Heartbeat timeout, seconds<input
+                id="heartbeat-timeout"
+                type="number"
+                min="0.5"
+                max="10"
+                step="0.1"
+                required
+            /></label>
+            <label
+              >After extension restart<select id="startup-mode">
+                <option value="stopped">Stopped</option>
+                <option value="monitor">Camera preview only</option>
+                <option value="publish">Enable output when checks pass</option>
+              </select></label
+            >
+          </div>
+          <details>
+            <summary>DroneEngage transport settings</summary>
+            <p>
+              Requires a separate raw MAVLink telemetry feed to the listen
+              endpoint above, plus a verified local DataBus deployment. Only one
+              target publisher may be active.
+            </p>
+            <div class="form-grid">
+              <label>DataBus host<input id="databus-host" /></label
+              ><label
+                >DataBus port<input
+                  id="databus-port"
+                  type="number"
+                  min="1024"
+                  max="65535" /></label
+              ><label>Module key<input id="databus-key" /></label>
+            </div>
+          </details>
+          <details>
+            <summary>Measurement acceptance limits</summary>
+            <p>
+              These are installation limits, not guaranteed performance.
+              Validate them against recorded camera latency, expected relative
+              speed and flight tests.
+            </p>
+            <textarea
+              id="quality-json"
+              rows="12"
+              spellcheck="false"
+              aria-label="Measurement quality configuration"
+            ></textarea>
+          </details>
+          <button type="submit">Save connection settings</button>
+          <p class="help">
+            Settings cannot change while output is enabled or the last known
+            aircraft state is armed. Stop output and obtain a disarmed heartbeat
+            before changing setup.
+          </p>
+        </form>
+      </section>
+      <section id="diagnostics" class="tab">
+        <div class="intro">
+          <div>
+            <h2>Understand every measurement</h2>
+            <p>
+              Local diagnostics include tag IDs, pose, fit error, age and
+              rejection reason.
+            </p>
+          </div>
+          <a
+            href="api/logs"
+            class="button secondary"
+            download="measurements.jsonl"
+            >Download log</a
+          >
+        </div>
+        <article class="panel form-panel">
+          <h3>Runtime status</h3>
+          <pre id="diagnostic-json">Connecting…</pre>
+        </article>
+      </section>
+      <footer>
+        WINGXTRA AEROSPACE
+        <span
+          >1.0.0-rc.1 · Aircraft validation required before operational
+          use</span
+        >
+      </footer>
+    </main>
+  </body>
+</html>

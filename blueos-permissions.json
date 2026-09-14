@@ -1,0 +1,14 @@
+{
+  "ExposedPorts": {"8077/tcp": {}},
+  "HostConfig": {
+    "NetworkMode": "host",
+    "Binds": ["/usr/blueos/extensions/wingxtra-precision-landing:/data"],
+    "RestartPolicy": {"Name": "unless-stopped"},
+    "CapDrop": ["ALL"],
+    "SecurityOpt": ["no-new-privileges:true"],
+    "CpuPeriod": 100000,
+    "CpuQuota": 200000,
+    "Memory": 1073741824,
+    "PidsLimit": 256
+  }
+}
