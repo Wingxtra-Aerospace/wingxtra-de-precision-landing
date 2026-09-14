@@ -11,6 +11,7 @@ from pydantic import Field
 
 from .board_svg import board_svg
 from .calibration import Calibration, chessboard_svg
+from .camera_profiles import camera_profiles
 from .config import Config, Model
 from .service import LandingService
 
@@ -99,6 +100,10 @@ def create_app(data_dir: Path, service=None) -> FastAPI:
     @app.get("/api/status")
     def status():
         return service.status()
+
+    @app.get("/api/camera-profiles")
+    def profiles_get():
+        return camera_profiles()
 
     @app.get("/api/config")
     def config_get():

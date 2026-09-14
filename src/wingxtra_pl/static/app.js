@@ -2,6 +2,7 @@
 const $ = (id) => document.getElementById(id);
 let config,
   board,
+  cameraProfiles = {},
   lastStatus,
   lastStatusAt = 0,
   previewBusy = { preview: false, "cal-preview": false },
@@ -77,10 +78,48 @@ document.querySelectorAll("nav button").forEach((b) =>
 );
 window.addEventListener("hashchange", () => chooseTab(location.hash.slice(1)));
 chooseTab(location.hash.slice(1));
+function populateProfileChoices() {
+  const select = $("camera-profile");
+  select.replaceChildren();
+  for (const [id, profile] of Object.entries(cameraProfiles)) {
+    const option = document.createElement("option");
+    option.value = id;
+    option.textContent = profile.label;
+    select.append(option);
+  }
+}
+function toggleGimbalFields() {
+  $("gimbal-fields").hidden = $("camera-mode").value !== "gimbal";
+}
+function applyCameraProfile() {
+  const id = $("camera-profile").value;
+  const profile = cameraProfiles[id];
+  if (!profile || id === "custom") return;
+  for (const [field, key] of [
+    ["camera-kind", "kind"],
+    ["camera-source", "source"],
+    ["camera-id", "camera_id"],
+    ["camera-lens", "lens_profile"],
+    ["camera-width", "width"],
+    ["camera-height", "height"],
+    ["camera-fps", "fps"],
+  ])
+    if (profile[key] !== undefined) $(field).value = profile[key];
+  $("camera-mode").value = profile.recommended_mode || "gimbal";
+  toggleGimbalFields();
+  notice(
+    "Profile defaults applied. Calibrate and bench-test this exact stream before publishing.",
+  );
+}
+$("camera-profile").addEventListener("change", applyCameraProfile);
+$("camera-mode").addEventListener("change", toggleGimbalFields);
 function populate() {
   const c = config.camera,
+    g = config.gimbal,
     o = config.output;
   for (const [id, value] of Object.entries({
+    "camera-profile": c.profile,
+    "camera-mode": c.mode,
     "camera-kind": c.kind,
     "camera-source": c.source,
     "camera-id": c.camera_id,
@@ -88,6 +127,11 @@ function populate() {
     "camera-width": c.width,
     "camera-height": c.height,
     "camera-fps": c.fps,
+    "gimbal-component": g.component_id,
+    "gimbal-device": g.device_id,
+    "gimbal-timeout": g.status_timeout_s,
+    "gimbal-skew": g.max_sample_skew_s,
+    "gimbal-down-error": g.max_downward_error_deg,
     "output-mode": o.mode,
     "listen-host": o.listen_host,
     "listen-port": o.listen_port,
@@ -107,7 +151,9 @@ function populate() {
     null,
     2,
   );
+  $("camera-to-gimbal").value = JSON.stringify(g.camera_to_gimbal, null, 2);
   $("quality-json").value = JSON.stringify(config.quality, null, 2);
+  toggleGimbalFields();
 }
 async function saveConfig(next) {
   config = await api("config", "PUT", next);
@@ -120,6 +166,8 @@ $("camera-form").addEventListener("submit", (event) => {
   action(async () => {
     const next = structuredClone(config);
     next.camera = {
+      profile: $("camera-profile").value,
+      mode: $("camera-mode").value,
       kind: $("camera-kind").value,
       source: $("camera-source").value,
       camera_id: $("camera-id").value,
@@ -129,6 +177,14 @@ $("camera-form").addEventListener("submit", (event) => {
       fps: num("camera-fps"),
     };
     next.mount.camera_to_body = JSON.parse($("mount-matrix").value);
+    next.gimbal = {
+      camera_to_gimbal: JSON.parse($("camera-to-gimbal").value),
+      component_id: num("gimbal-component"),
+      device_id: num("gimbal-device"),
+      status_timeout_s: num("gimbal-timeout"),
+      max_sample_skew_s: num("gimbal-skew"),
+      max_downward_error_deg: num("gimbal-down-error"),
+    };
     await saveConfig(next);
   });
 });
@@ -278,7 +334,7 @@ async function refresh() {
     "camera-detail",
     s.camera.error ||
       (s.camera.connected
-        ? `${s.camera.width} × ${s.camera.height}`
+        ? `${s.camera.width} × ${s.camera.height} · ${s.camera.mode}`
         : "Start preview to connect"),
   );
   text("cal-state", s.calibration.valid ? "Calibrated" : "Required");
@@ -444,7 +500,12 @@ async function poll() {
   }
 }
 action(async () => {
-  [config, board] = await Promise.all([api("config"), api("board")]);
+  [config, board, cameraProfiles] = await Promise.all([
+    api("config"),
+    api("board"),
+    api("camera-profiles"),
+  ]);
+  populateProfileChoices();
   populate();
   $("board-json").value = JSON.stringify(board, null, 2);
   poll();

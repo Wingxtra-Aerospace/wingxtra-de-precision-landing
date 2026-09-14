@@ -91,7 +91,16 @@ For the supported ArduCopter companion backend, enable `PLND_ENABLED=1` and sele
 
 The service already applies the complete camera-to-BODY_FRD rotation. Keep `PLND_YAW_ALIGN=0` and the downward/default `PLND_ORIENT=25` where that parameter is exposed by the installed firmware; an additional rotation would rotate the vector twice. Enter the physical camera lever arm in `PLND_CAM_POS_X/Y/Z`. Review the installed firmware's estimator, latency, acquisition, loss/retry and descent behavior. Verify these meanings on the exact firmware and follow [COMMISSIONING.md](COMMISSIONING.md) before operational flight or enabling publish-on-restart.
 
-**QuadPlane:** receiving this sensor's MAVLink message does not by itself establish that landing corrections are enabled. ArduPilot's official [Plane precision-landing applet instructions](https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Scripting/applets/plane_precland.md) describe the flight-controller-side `plane_precland.lua` integration. Follow the version-matched upstream instructions, confirm scripting/precision-landing support in the actual firmware build, and validate QLOITER/QLAND/QRTL/AUTO behavior separately. This extension does not install that applet or change flight-controller parameters.
+**QuadPlane:** receiving this sensor's MAVLink message does not by itself
+enable landing corrections. Use the versioned
+[Wingxtra applet](../applets/README.md), not a second precision-landing applet,
+and verify its upstream-compatible bindings against the exact ArduPlane build.
+The extension does not write the flight controller's SD/eMMC filesystem or
+change parameters. Copy the Lua file to `APM/scripts` only during a controlled,
+disarmed setup, restart the controller, verify the `WXPL: Loaded` message and
+then complete the applicable SITL/bench cases before flight. Fixed mode uses
+`WXPL_CAM_MODE=0`; gimbal mode uses `1` and requires the ownership/attitude
+checks documented in [camera modes](CAMERA_MODES.md).
 
 After the first autopilot heartbeat, setup changes require a fresh disarmed heartbeat. Following an endpoint change, wait for telemetry on the new endpoint. If a wrong endpoint prevents recovery, stop work, physically verify the aircraft is disarmed on the bench, and correct persistent configuration or restart the extension there. Restart is not a way to bypass an armed-state lock during flight.
 

@@ -1,3 +1,15 @@
+# Unreleased — fixed/gimbal modes and QuadPlane applet
+
+- Added editable connection presets for selected SIYI and XFRobot streams,
+  explicit fixed/gimbal installation modes, and retained calibration binding to
+  the actual source/lens/resolution rather than shipping assumed intrinsics.
+- Added fail-closed `GIMBAL_DEVICE_ATTITUDE_STATUS` selection, frame matching,
+  yaw-frame conversion, health/downward-envelope checks and BODY_FRD geometry.
+- Added an attributed GPL-3.0-or-later Wingxtra QuadPlane applet with separate
+  fixed/gimbal paths, optional downward pointing, measured-attitude gating and
+  pre-navigation range/distance checks.
+- This work is under review and is not yet SITL-, bench- or flight-qualified.
+
 # 1.0.0-rc.2 — second review and failure-case fixes
 
 - Post-merge packaging review: added the author email required by the [BlueOS manifest schema](https://github.com/BlueRobotics/BlueOS/blob/master/core/services/kraken/manifest/models.py), using the public contact on [Wingxtra's company page](https://wingxtra.com/company/). The previous author object failed upstream schema validation. Native container checks now inspect the built image's author metadata as well as startup and service registration. This corrects catalog metadata and does not change the landing engine.

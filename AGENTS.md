@@ -2,7 +2,7 @@
 
 Read `docs/PROJECT_STATUS.md` and `docs/DECISION_LOG.md` before substantive work. Use `docs/DEVELOPMENT_PLAN.md` for scope/dependencies and `docs/VALIDATION_MATRIX.md` for acceptance. `docs/MILESTONES.md` and `docs/CODEX_RUNBOOK.md` are historical prototype records, not current requirements.
 
-The user's latest explicit instruction governs scope. On 2026-09-14 the user authorised planning and ongoing tracking, while deferring implementation of new gimbal support and the Wingxtra QuadPlane applet. A later implementation instruction can supersede that hold; record it rather than repeatedly requesting permission already given. Do not infer implementation or deployment authorisation from this roadmap.
+The user's latest explicit instruction governs scope. On 2026-09-14 the user authorised implementation of selectable fixed/gimbal camera support and a Wingxtra QuadPlane applet, superseding the earlier planning-only hold. This authorises reviewable source work, not aircraft settings, deployment or flight qualification; those require their own evidence and authority.
 
 For every meaningful code, test, configuration, documentation, hardware-evidence or requirement change:
 

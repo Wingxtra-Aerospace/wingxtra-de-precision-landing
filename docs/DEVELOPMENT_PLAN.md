@@ -2,7 +2,7 @@
 
 Wingxtra Aerospace Ltd. · Planning baseline: 2026-09-14
 
-Progress is maintained in [PROJECT_STATUS.md](PROJECT_STATUS.md). This document defines the work and its acceptance approach; it is not permission to start implementation. The current user instruction is to plan first.
+Progress is maintained in [PROJECT_STATUS.md](PROJECT_STATUS.md). The user authorised implementation of selectable fixed/gimbal modes and the Wingxtra QuadPlane applet on 2026-09-14. That authorisation covers reviewable source work, not aircraft deployment or flight acceptance.
 
 ## Objectives and boundaries
 
@@ -29,14 +29,14 @@ Keep image processing on the CM4. Keep aircraft descent, landing-target updates 
 
 - Name every coordinate frame, axis convention, quaternion convention and reference point. Camera optical axes and gimbal device axes are not interchangeable.
 - Fixed-camera mode retains its calibrated constant transformation. Gimbal mode computes the transformation for each image without rewriting persisted installation calibration during flight.
-- Handle aircraft-relative versus Earth-referenced gimbal yaw flags, roll/pitch stabilisation semantics, boresight calibration and device-specific conventions. Do not assume the reported quaternion is already a full camera-to-body rotation.
+- Handle aircraft-relative versus Earth-referenced gimbal yaw flags, roll/pitch stabilisation semantics, boresight calibration and device-specific conventions. Do not assume the reported quaternion is already a full camera-to-body rotation. Vehicle-heading yaw does not supply aircraft roll/pitch compensation: compose time-aligned aircraft attitude with the appropriate horizon/heading frame, and validate tilted-aircraft cases (T06).
 - Keep BODY_FRD X/Y/Z and `distance = norm(position)` at the output boundary, with `position_valid=1`. `LANDING_TARGET.q` describes target orientation; placing a gimbal quaternion there does not rotate X/Y/Z.
 - The current output vector originates at the camera and relies on the FC's configured camera offset. A gimbal can move the optical centre. Decide whether to compensate to a fixed reference such as the pivot or aircraft origin; then match FC offset settings and migration to that choice. Include the offset once, not in both components.
 - Match companion transformation timing to the FC's attitude/latency handling. Do not compensate the same rotation, displacement or delay twice.
 
 ### Timing and geometry — R03, G02, G05
 
-Current frame timestamps record local receipt/decode, not proven exposure time. Establish clock mapping and an attitude history, or demonstrate a bounded latency model on the chosen camera. Reject observations that cannot satisfy the agreed timing-error budget. Fresh UDP arrival does not prove a gimbal device's orientation estimate is fresh.
+Current frame timestamps record local receipt/decode, not proven exposure time. Establish clock mapping and an attitude history, or demonstrate a bounded latency model on the chosen camera. Reject observations that cannot satisfy the agreed timing-error budget. Fresh UDP arrival does not prove a gimbal device's orientation estimate is fresh. Validate device-clock progression per selected source; repeated or reordered timestamps must not renew readiness. D10 records the implemented startup/progression/wrap policy and T07 covers its software regressions. O05/R05 still require measured clock/exposure mapping and device evidence; receipt-time matching alone does not settle that contract.
 
 Measure end-to-end exposure-to-target delay under the intended video format/resolution and concurrent load. Bound the resulting position error using expected aircraft/gimbal motion and landing range. Decide telemetry rates from that budget; do not assume a nominal frame rate or 1 Hz attitude stream is sufficient. Repeatedly encoded frozen video is a separate limitation: document and test what the selected hardware can detect, and the remaining operational response.
 

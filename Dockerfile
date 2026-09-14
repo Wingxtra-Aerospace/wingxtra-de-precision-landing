@@ -44,6 +44,7 @@ CMD ["wingxtra-pl", "--data-dir", "/data", "--host", "0.0.0.0", "--port", "8077"
 
 FROM runtime AS test
 COPY tests /tests
+COPY applets /applets
 COPY landing-target.json /landing-target.json
 RUN pip install --no-cache-dir pytest==9.0.2 httpx==0.28.1
 WORKDIR /
