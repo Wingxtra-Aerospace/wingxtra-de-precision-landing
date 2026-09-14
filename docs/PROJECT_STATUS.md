@@ -93,7 +93,7 @@ Owner roles are proposed responsibilities, not assignments to named staff. Engin
 
 ## Immediate next actions
 
-1. Review the fixed/gimbal/applet implementation and its automated results; do not treat merge as aircraft qualification.
+1. Review [PR #36](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36) and its automated results. The unused `half` assignment in the G03 earth-frame test was manually removed; local F841 checks pass and the affected test passes. Full local Ruff still reports the separate unused NumPy import (F401), so CI acceptance remains pending. Do not treat merge as aircraft qualification.
 2. Record exact flight firmware and fixed-camera/gimbal models when available (R01–R02).
 3. Agree measurable landing requirements and failure behaviour (R03–R04).
 4. Add Landmark evidence when the card arrives; continue to distinguish that system's success from Wingxtra qualification.

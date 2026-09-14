@@ -29,6 +29,12 @@ Append dated entries; retain earlier results and decisions. Current task states 
 - Corrected F05 so fixed-camera milestone M2 no longer depends on gimbal test T08 or release test T14, resolving the review finding on PR #35.
 - Remaining: code review/CI, version-matched Lua/SITL, actual camera/gimbal identity, latency and lever-arm measurements, CM4/Pixhawk bench tests, approved recovery policy and controlled flight evidence.
 
+## 2026-09-14 — G03: remove unused test variable
+
+- In [PR #36](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36), manually removed only the unused `half = math.sqrt(0.5)` assignment from `test_earth_frame_status_uses_delta_yaw_to_recover_vehicle_frame`; retained the assignment used by the downward-camera test. Change starts from `34516b866b4ea80c5733682efc5d7b17ab9e3f48`.
+- Local validation: `ruff check --select F841 src tests` passed; `python -m pytest -q tests/test_gimbal_modes.py::test_earth_frame_status_uses_delta_yaw_to_recover_vehicle_frame` reported **1 passed**. `ruff check src tests` still reports the separate unused NumPy import (F401) in the same file.
+- G03 remains IN REVIEW. This fixes one lint blocker without changing test assertions or runtime behaviour; full CI, applet review, SITL, bench and flight acceptance remain outstanding.
+
 ## Entry template
 
 Copy for the next meaningful change:

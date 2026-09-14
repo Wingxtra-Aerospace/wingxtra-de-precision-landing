@@ -60,7 +60,6 @@ def test_downward_vehicle_frame_gimbal_rotates_camera_vector_to_body_down():
 
 
 def test_earth_frame_status_uses_delta_yaw_to_recover_vehicle_frame():
-    half = math.sqrt(0.5)
     # q_earth = yaw(+90) * q_vehicle; delta_yaw allows the inverse conversion.
     q_earth = (0.5, 0.5, -0.5, 0.5)
     body, error = target_in_body(
