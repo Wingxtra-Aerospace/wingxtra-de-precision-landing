@@ -2,7 +2,7 @@
 
 Owner: Wingxtra Aerospace Ltd. · Last reviewed: 2026-09-14
 
-**Current scope: planning and tracking. The user has not yet authorised implementation of the new gimbal support or Wingxtra QuadPlane applet.** A later explicit implementation instruction can change this scope; record it in the decision log. Existing software remains a release candidate.
+**Current scope: implementation of explicit fixed/gimbal camera modes and the Wingxtra QuadPlane applet is authorised and in review.** Aircraft configuration, deployment and flight qualification remain unperformed and require their own evidence. Existing software remains a release candidate.
 
 This is the authoritative progress register. Read the [development plan](DEVELOPMENT_PLAN.md), [decisions and open questions](DECISION_LOG.md), [validation matrix](VALIDATION_MATRIX.md) and [progress history](PROGRESS_LOG.md) alongside it. The old [prototype milestones](MILESTONES.md) are historical.
 
@@ -16,6 +16,28 @@ This is the authoritative progress register. Read the [development plan](DEVELOP
 | Selected hardware | User selected CM4 8GB RAM / 32GB eMMC with Holybro Pixhawk 6X CM4 baseboard. Selection is confirmed; operation of this assembly with Wingxtra is not yet verified. |
 | Flight qualification | None recorded for Wingxtra. No physical-camera benchmark, completed Wingxtra SITL landing or aircraft landing was available during the software reviews. |
 | Reference system | User reports successful Landmark operation and intends to supply its memory-card contents. The files have not been supplied or examined. |
+
+## Current implementation review — PR #36
+
+[PR #35](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/35) merged the tracker as `5194f27551b4fad534915fbdd21e4d16febb77ff`. [PR #36](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36) is open, ready for review and unmerged at [`fa363e5680e577784194b3f023f114eecf16e055`](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/commit/fa363e5680e577784194b3f023f114eecf16e055). Its implementation is present on the PR branch only.
+
+The unused `half` assignment was removed in `e8b19575bcf404a59765b447f78ad2d0dc369ad2`. Commit `fa363e5680e577784194b3f023f114eecf16e055` removes the unused NumPy import, fixes formatting and corrects the applet's `mount:get_attitude_euler` return order. It preserves the earlier fix.
+
+| Evidence | Result and boundary |
+|---|---|
+| [CI run 34827077062](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062), last updated 2026-09-14 09:20:17 UTC | Completed successfully for `fa363e5680e577784194b3f023f114eecf16e055`. This is software/container evidence for the unmerged PR. |
+| [Python job 103921586156](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062/job/103921586156) | Ruff lint/format, frontend syntax/format and browser checks pass; **78 Python tests pass** with two dependency deprecation warnings; **12 Lua API-stub scenarios pass**. Stubbed APIs do not validate installed firmware. |
+| [AMD64 job 103921869873](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062/job/103921869873) and [ARM64 job 103921869879](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062/job/103921869879) | Image builds, Debian OpenCV tests and container startup/health checks pass. Registry push and the manifest job are skipped by the pull-request workflow conditions; no published release is claimed. |
+| GitHub artifacts for this run | [python-test-results, 10340224686](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062/artifacts/10340224686); [blueos-image-amd64, 10339988732](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062/artifacts/10339988732); [blueos-image-arm64, 10340419758](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062/artifacts/10340419758). Artifact metadata and job logs were inspected; image archives were not independently installed on the selected CM4. |
+
+**Gimbal acceptance remains blocked despite passing CI.** Two automated review findings against parent `e8b19575bcf404a59765b447f78ad2d0dc369ad2` were independently checked against the current PR tree and reproduced with read-only synthetic inputs. No human review or approval was present at this snapshot.
+
+| Affected work / test | Verified blocker | Required next action |
+|---|---|---|
+| G01–G03 / T06; M4 | [Missing aircraft roll/pitch conversion](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36#discussion_r4003725723): `gimbal_to_body_rotation` treats heading/horizon-referenced orientation as full BODY_FRD. With a horizon-down target 2 m away and illustrative aircraft roll of 10°, it returns approximately `[0, 0, 2]` instead of `[0, 0.347296, 1.969616]` m. | Ingest time-aligned aircraft attitude, compose the complete horizon/earth-to-body rotation, and add tilted-aircraft regressions for supported yaw-frame conventions. |
+| G01–G02, G05 / T07; M4 | [Nonadvancing device time refreshes stale orientation](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36#discussion_r4003725728): `time_boot_ms` is stored but not checked. Repeating device time `1234` at receive times `10` and `20` seconds still authorises the target at time `20`. | Track timestamp progression per selected device; expire cached/reordered data and define explicit reboot/wrap handling before acceptance. Preserve fixed-mode independence. |
+
+The illustrative inputs above are diagnostic stimuli, not operating limits. T06/T07 acceptance is withheld; the existing CI pass does not cover these failures. No previously DONE gimbal task is being reopened because none was accepted. Historical B01–B08 evidence remains scoped to its original fixed-camera/software baseline. SITL, CM4/device bench tests and Wingxtra flight qualification remain unperformed.
 
 ## Status rules
 
@@ -45,11 +67,11 @@ Do not invent percentage completion from task counts. Implementation, automated 
 
 | Milestone | Scope | Current state | Exit / dependency |
 |---|---|---|---|
-| M0 | Living plan and tracking workflow | IN REVIEW | P01–P02; planning PR reviewed and merged, update mechanism recorded. |
+| M0 | Living plan and tracking workflow | DONE | P01–P02; PR #35 merged and the first live merge reconciliation was observed. |
 | M1 | Requirements, compatibility and interface contracts | BLOCKED | R01–R05. Gimbal-specific unknowns must not prevent unrelated fixed-camera planning. |
-| M2 | Fixed-camera QuadPlane integration baseline | PLANNED | F01–F05; fixed-camera SITL/bench acceptance, before qualification. |
+| M2 | Fixed-camera QuadPlane integration baseline | IN PROGRESS | F01–F04 have reviewable implementation; F05 SITL/bench acceptance remains. |
 | M3 | Fixed-camera aircraft qualification | PLANNED | V01–V03; depends on M2 and approved test envelope. |
-| M4 | First gimbal in downward landing operation | PLANNED | G01–G06; depends on M2 and gimbal-specific M1 decisions. May be developed while fixed-camera qualification proceeds once authorised. |
+| M4 | First gimbal in downward landing operation | IN PROGRESS | G01–G05 have reviewable implementation; M2 and gimbal-specific M1 dependencies remain. Acceptance is blocked by the T06/T07 defects above and missing G06 evidence. |
 | M5 | Gimbal integration and aircraft qualification | PLANNED | Q01–Q03; depends on M3 and M4, with fixed-camera regression evidence. |
 | M6 | Reproducible releases and ongoing maintenance | PLANNED | L01–L04; qualify each supported combination separately. Maintenance continues after release. |
 | M7 | Active gimbal search / tracking | DEFERRED | X01; separate operational need and design review. |
@@ -60,27 +82,27 @@ Owner roles are proposed responsibilities, not assignments to named staff. Engin
 
 | ID | Task / owner role | Status | Dependency or next action | Completion evidence |
 |---|---|---|---|---|
-| P01 | Publish plan, tracker, decisions and test matrix / Engineering | IN REVIEW | [Planning PR #35](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/35) | Documents checked and published; merge remains pending |
-| P02 | Establish updates during work and on PR events / Engineering | IN REVIEW | Watcher created and enabled; contributor rules/template in PR #35 | Setup confirmed on 2026-09-14; merge and first live reconciliation remain to be observed |
+| P01 | Publish plan, tracker, decisions and test matrix / Engineering | DONE | [PR #35](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/35), merge `5194f27551b4fad534915fbdd21e4d16febb77ff` | Planning documents merged to main on 2026-09-14; this does not accept later implementation |
+| P02 | Establish updates during work and on PR events / Engineering | DONE | Contributor rules/template merged in PR #35; its merge triggered the first evidence reconciliation | Event coverage limits remain documented; ongoing maintenance is L04 |
 | R01 | Pin ArduPlane/ArduCopter, BlueOS, host OS and upstream applet / Integration | BLOCKED | Need intended firmware versions and exact build capabilities | Compatibility record with immutable references, Lua/precland availability and mode support |
 | R02 | Identify cameras, gimbal, feedback and video interfaces / Integration | BLOCKED | Need model/SKU/firmware and control interface | Separate fixed/gimbal capability records; verify feedback semantics and camera geometry |
 | R03 | Define accuracy, range, latency and resource budgets / Product + Engineering | BLOCKED | Need operating envelope and acceptance targets | Numeric pass/fail limits; no unspecified thresholds at qualification |
 | R04 | Decide acquisition, target-loss, override and touchdown policy / Product + Flight test | BLOCKED | Resolve O04 in decision log | State/transition table, authority and fallback policy for every intended mode |
 | R05 | Finalise coordinate, timing, health and version contracts / Engineering | PLANNED | R01–R04 for the affected camera path | Reviewed interfaces and migration design; camera offsets applied once |
 | REF01 | Compare Landmark with Wingxtra / Engineering | BLOCKED | Waiting for user-supplied files, settings and optional successful logs | Read-only review and reproducible comparisons; source/binary limitations recorded. Does not block independent Wingxtra development. |
-| F01 | Vendor a versioned Wingxtra QuadPlane applet / Engineering | PLANNED | R01, R04, R05; implementation authorisation | Upstream revision, licence/provenance, change list and loading/version evidence |
-| F02 | Correct acceptance order and robust applet guards / Engineering | PLANNED | F01 | Cutoffs and nil/health checks before navigation changes; update-call failures handled; regression tests |
-| F03 | Add flight-controller readiness and loss supervision / Engineering | PLANNED | R04–R05, F01 | Defined expiry, restart and operator-override behaviour, including total companion failure |
-| F04 | Preserve fixed-camera operation and introduce explicit camera modes / Engineering | PLANNED | R05 | Fixed mode requires no gimbal telemetry; migration preserves existing configuration; no automatic mode fallback |
-| F05 | Commission fixed camera on CM4/BlueOS/Pixhawk and simulate intended modes / Integration | PLANNED | F02–F04, R01–R03 | T01–T04, T08–T14 in validation matrix; measured load, latency, power and routing |
+| F01 | Vendor a versioned Wingxtra QuadPlane applet / Engineering | IN REVIEW | Review implementation; R01/R04/R05 still gate SITL/aircraft acceptance | Applet pins upstream `9456449a442617b2af1c3132b64c3120f1694583`, preserves GPL-3.0-or-later provenance and documents installation |
+| F02 | Correct acceptance order and robust applet guards / Engineering | IN REVIEW | Independent applet review and version-matched Lua/SITL tests remain | The documented roll/pitch/yaw return order is implemented in `fa363e5680e577784194b3f023f114eecf16e055`; all 12 Lua API-stub scenarios pass in CI run 34827077062, including missing feedback and fixed-mode independence. Firmware/SITL acceptance remains pending. |
+| F03 | Add flight-controller readiness and loss supervision / Engineering | IN PROGRESS | R04–R05 remain required for policy completion | Proposed applet fails closed on unavailable target/gimbal inputs; total companion failure and target-loss aircraft policy are not yet accepted |
+| F04 | Preserve fixed-camera operation and introduce explicit camera modes / Engineering | IN REVIEW | Review automated fixed-mode regression and configuration migration | Proposed `fixed` mode retains the constant BODY_FRD transform and never calls the mount API; `gimbal` is explicit, with complete failure rejection still gated by G05/T07 |
+| F05 | Commission fixed camera on CM4/BlueOS/Pixhawk and simulate intended modes / Integration | PLANNED | F02–F04, R01–R03 | Fixed-camera portions of T01–T04 and T09–T13; measured load, latency, power and routing. T08 remains under M4 and T14 under M6. |
 | V01 | Prepare fixed-camera flight test and recovery procedure / Flight test | PLANNED | M2, R03–R04 | Approved envelope, locations, operator authority and pass/fail criteria |
 | V02 | Perform and analyse controlled fixed-camera flights / Flight test | PLANNED | V01 | Raw logs/video references, configuration hashes, measured accuracy and all failures retained |
 | V03 | Qualify a named fixed-camera aircraft combination / Product + Flight test | PLANNED | V02 | Signed/attributed acceptance for that exact combination; limitations recorded |
-| G01 | Implement one gimbal capability/telemetry adapter / Engineering | PLANNED | R02/R05 gimbal decisions, M2 | Identity, frame flags, normalised orientation, device health and freshness tests |
-| G02 | Add frame-to-attitude time alignment / Engineering | PLANNED | G01, R03/R05 | Capture-time mapping or bounded measured delay; history interpolation; stale/unsynchronised data rejected |
-| G03 | Implement dynamic target transformation and lever-arm handling / Engineering | PLANNED | G01–G02, R05 | Known-pose tests, offset convention, BODY_FRD output and no double compensation |
-| G04 | Add landing pointing and control ownership / Engineering | PLANNED | G01, R04, F03 | Commanded vs measured position distinguished; limits/settling/override/release tested |
-| G05 | Add gimbal readiness, UI diagnostics and calibration-profile checks / Engineering | PLANNED | G02–G04 | No output on missing/invalid feedback, changed zoom/crop or wrong device; visible reason codes |
+| G01 | Implement one gimbal capability/telemetry adapter / Engineering | IN REVIEW | Correct aircraft-frame handling and device-time freshness (T06/T07); exact first gimbal remains R02 | Generic MAVLink adapter exists in PR #36; independent diagnostics above prevent acceptance of its frame/freshness claims |
+| G02 | Add frame-to-attitude time alignment / Engineering | IN REVIEW | Acceptance blocked by T07; validate per-device clock progression and time-aligned aircraft/gimbal data, then measure latency | Receipt-time matching exists, but repeated device timestamps still refresh cached orientation at `fa363e5680e577784194b3f023f114eecf16e055`; exposure-time synchronisation is not established |
+| G03 | Implement dynamic target transformation and lever-arm handling / Engineering | IN REVIEW | Acceptance blocked by T06; compose aircraft attitude and add tilted-aircraft regressions; resolve O06 | PR #36 has dynamic rotation code, but the current transform omits aircraft roll/pitch and fails the diagnostic above; moving optical-centre compensation remains unresolved |
+| G04 | Add landing pointing and control ownership / Engineering | IN REVIEW | R04 policy and device/SITL tests still required | Applet defaults to external pointing, offers opt-in downward command and always requires measured pitch inside tolerance |
+| G05 | Add gimbal readiness, UI diagnostics and calibration-profile checks / Engineering | IN REVIEW | Correct stale-device-time readiness (T07) and validate UI/API diagnostics | Editable connection presets and calibration identity checks exist in PR #36; fresh packet arrival can still authorise cached gimbal orientation, so complete failure rejection is not accepted |
 | G06 | Benchmark and regression-test both modes on CM4 / Integration | PLANNED | G05, F05 | Resource and timing budgets met with intended BlueOS/DroneEngage services; fixed mode still passes |
 | Q01 | Run QuadPlane/gimbal SITL and integrated bench/HIL scenarios / Integration | PLANNED | M4, R04 | All applicable validation-matrix cases; controlled failure injection and release evidence |
 | Q02 | Conduct controlled gimbal flight campaign / Flight test | PLANNED | Q01, V03 | Measurements and logs for declared envelope; failures and corrective actions retained |
@@ -93,7 +115,7 @@ Owner roles are proposed responsibilities, not assignments to named staff. Engin
 
 ## Immediate next actions
 
-1. Review and merge the planning deliverable; retain the implementation hold until the user changes it.
+1. Correct PR #36's independently verified T06/T07 gimbal defects, add regression coverage and rerun the applicable checks. Lint/format and Lua return-order blockers are cleared at `fa363e5680e577784194b3f023f114eecf16e055`; the successful CI run above does not resolve the new acceptance blockers.
 2. Record exact flight firmware and fixed-camera/gimbal models when available (R01–R02).
 3. Agree measurable landing requirements and failure behaviour (R03–R04).
 4. Add Landmark evidence when the card arrives; continue to distinguish that system's success from Wingxtra qualification.
@@ -103,6 +125,6 @@ There are no committed calendar delivery dates. Estimate effort after requiremen
 ## How updates are maintained
 
 - During active work, update this register, affected decisions and progress history alongside each meaningful change. The [contributor instructions](../AGENTS.md) and [PR checklist](../.github/pull_request_template.md) preserve this requirement for later sessions.
-- A GitHub automation named **Update Wingxtra project progress** was created and enabled on 2026-09-14 for this repository. It responds to supported PR open/ready/close/merge events, new commits on PRs, human reviews and new PR conversation/inline comments. Actual event delivery has not yet been observed at this planning snapshot.
+- A GitHub automation named **Update Wingxtra project progress** was created and enabled on 2026-09-14 for this repository. It responds to supported PR open/ready/close/merge events, new commits on PRs, human reviews and new PR conversation/inline comments. The PR #35 merge event produced the first live evidence reconciliation on 2026-09-14.
 - After PR #35 is merged, the watcher reads current repository/PR evidence and proposes necessary tracker changes in a documentation-only PR, reusing an open progress PR where possible. It does not implement features, deploy, modify aircraft settings, send messages to other people or merge automatically. No substantive change means no update/notification; its own bookkeeping must not trigger a loop.
 - Standalone pushes without a PR, CI completion by itself, edited/deleted comments and offline bench/flight work are not direct event triggers. Those facts are incorporated during active work or the next relevant review. Supply external test evidence before a hardware or flight task can be marked complete.
