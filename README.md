@@ -8,7 +8,11 @@ A companion-computer service that estimates the **shared landing-board origin fr
 
 The [project status tracker](docs/PROJECT_STATUS.md) records completed work, remaining tasks, blockers and evidence. The [development plan](docs/DEVELOPMENT_PLAN.md) covers fixed cameras, future gimbal support and a Wingxtra QuadPlane applet. See also the [decision log](docs/DECISION_LOG.md), [validation matrix](docs/VALIDATION_MATRIX.md) and [progress history](docs/PROGRESS_LOG.md).
 
-This roadmap is currently a planning deliverable. Dynamic gimbal support and the Wingxtra applet have not been implemented. Updates to work and requirements must update the tracker and evidence alongside the change.
+Implementation of explicit fixed/gimbal camera modes and the Wingxtra
+QuadPlane applet is now under review. See [camera profiles and installation
+modes](docs/CAMERA_MODES.md) and [the applet guide](applets/README.md). This does
+not establish SITL, bench or flight qualification. Updates to work and
+requirements must update the tracker and evidence alongside the change.
 
 ## What is included
 
@@ -84,4 +88,4 @@ See [architecture and failure behavior](docs/ARCHITECTURE_OVERVIEW.md), [commiss
 
 The extension follows the [BlueOS extension interface](https://blueos.cloud/docs/stable/development/extensions/) and [MAVLink landing-target protocol](https://mavlink.io/en/services/landing_target.html). ArduPilot integration uses the MAVLink precision-landing backend. QuadPlane requires additional version-matched flight-controller integration; see [installation](docs/BLUEOS_INSTALL.md). Tests cover decoded packet fields, rendered multi-tag images, calibration, UDP transport and service behavior. DataBus framing is checked against the [DroneEngage client protocol](https://github.com/DroneEngage/droneengage_databus/tree/main/python); live DroneEngage forwarding must also be verified on the installed version.
 
-MIT licensed. The implementation does not incorporate code from the GPL-licensed BlueOS community precision-landing extension.
+The companion extension is MIT licensed and does not incorporate code from the GPL-licensed BlueOS community extension. The separately installed Wingxtra QuadPlane applet is an attributed ArduPilot derivative under GPL-3.0-or-later; see `applets/README.md` and `applets/COPYING`.

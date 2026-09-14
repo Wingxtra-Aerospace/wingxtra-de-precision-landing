@@ -2,7 +2,7 @@
 
 Wingxtra Aerospace Ltd. · Planning baseline: 2026-09-14
 
-Progress is maintained in [PROJECT_STATUS.md](PROJECT_STATUS.md). This document defines the work and its acceptance approach; it is not permission to start implementation. The current user instruction is to plan first.
+Progress is maintained in [PROJECT_STATUS.md](PROJECT_STATUS.md). The user authorised implementation of selectable fixed/gimbal modes and the Wingxtra QuadPlane applet on 2026-09-14. That authorisation covers reviewable source work, not aircraft deployment or flight acceptance.
 
 ## Objectives and boundaries
 

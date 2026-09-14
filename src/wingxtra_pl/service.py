@@ -15,6 +15,7 @@ from . import __version__
 from .calibration import Calibration, CalibrationSession
 from .camera import Camera
 from .config import Config
+from .gimbal import target_in_body
 from .landing_target_layout import LandingTargetLayout
 from .mavlink_out.databus_internal_mavlink import DroneEngageDatabusInternalMavlinkOut
 from .mavlink_out.udp import LandingTargetEncoder, RouterLink
@@ -68,6 +69,7 @@ class LandingService:
         self.last_sent = 0.0
         self.last_tick = time.monotonic()
         self.last_measurement = None
+        self.last_gimbal = None
         self.last_preview = None
         self.last_preview_time = 0
         self.sent_count = 0
@@ -140,6 +142,49 @@ class LandingService:
         if self.link:
             self.link.poll(now)
             self.telemetry_seen |= self.link.seen_heartbeat or self.link.armed is not None
+
+    def _body_from_pose(self, pose, frame, now):
+        self.last_gimbal = None
+        if pose is None:
+            return None, None
+        if self.config.camera.mode == "fixed":
+            return np.asarray(self.config.mount.camera_to_body) @ pose["tvec"], None
+        if self.link is None:
+            return None, "Gimbal mode requires the MAVLink telemetry link"
+        g = self.config.gimbal
+        sample, reason = self.link.gimbal_attitude(
+            frame.monotonic,
+            component_id=g.component_id,
+            device_id=g.device_id,
+            max_skew_s=g.max_sample_skew_s,
+        )
+        if reason:
+            return None, reason
+        age = now - sample.received_monotonic
+        if not 0 <= age <= g.status_timeout_s:
+            return None, "Gimbal attitude is stale"
+        try:
+            body, downward_error = target_in_body(
+                pose["tvec"],
+                sample,
+                g.camera_to_gimbal,
+                g.max_downward_error_deg,
+            )
+        except ValueError as exc:
+            return None, str(exc)
+        self.last_gimbal = {
+            "component_id": sample.component_id,
+            "device_id": sample.device_id,
+            "age_ms": round(age * 1000, 1),
+            "frame_skew_ms": round(
+                abs(sample.received_monotonic - frame.monotonic) * 1000, 1
+            ),
+            "downward_error_deg": round(downward_error, 2),
+            "flags": sample.flags,
+            "failure_flags": sample.failure_flags,
+            "time_alignment": "kernel-receive-to-frame-receipt",
+        }
+        return body, None
 
     def _setup_lock_reason(self):
         if self.mode == "publish":
@@ -312,9 +357,11 @@ class LandingService:
         self.last_sequence = frame.sequence
         pose = self.estimator.estimate(frame.image) if self.estimator else None
         self.processed_count += 1
-        body = np.asarray(self.config.mount.camera_to_body) @ pose["tvec"] if pose else None
         now = time.monotonic()
+        body, geometry_reason = self._body_from_pose(pose, frame, now)
         accepted = self.tracker.accept(pose, body, frame.monotonic, now, frame.sequence)
+        if geometry_reason:
+            accepted = self.tracker.reject(geometry_reason)
         if self.estimator is None:
             self.tracker.reject("Calibrate this camera to estimate a target")
         reason = self.tracker.reason
@@ -403,6 +450,8 @@ class LandingService:
                 and self.thread.is_alive()
                 and now - self.last_tick < 5,
                 "camera": {
+                    "profile": self.config.camera.profile,
+                    "mode": self.config.camera.mode,
                     "connected": self.mode != "stopped"
                     and self.camera_fault is None
                     and frame is not None
@@ -412,6 +461,7 @@ class LandingService:
                     "height": self.config.camera.height,
                     "age_ms": round((now - frame.monotonic) * 1000, 1) if frame else None,
                 },
+                "gimbal": self.last_gimbal,
                 "connection": self.link.status(now)
                 if self.link
                 else {"connected": False, "armed": None, "heartbeat_age_s": None},

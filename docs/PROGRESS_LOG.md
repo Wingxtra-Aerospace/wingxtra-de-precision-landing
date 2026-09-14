@@ -19,6 +19,16 @@ Append dated entries; retain earlier results and decisions. Current task states 
 - Checked Markdown links/anchors, task/test ID uniqueness, code-fence balance and whitespace. The change contains only planning/contributor documents and README/archive pointers; runtime code, applets, tests, dependency files, packaging and workflows are unchanged.
 - Next: merge the planning PR, verify the first relevant reconciliation, then resolve the recorded hardware/firmware and operating-policy inputs. Feature implementation remains deferred.
 
+## 2026-09-14 — P01/P02/F01–F04/G01–G05: authorise and start implementation
+
+- User explicitly authorised selectable fixed/gimbal camera support and a Wingxtra QuadPlane applet, superseding the planning-only implementation hold (D09).
+- PR #35 merged as `5194f27551b4fad534915fbdd21e4d16febb77ff`; the planning baseline is now on main. Its head `6f7a002ea72880a609774b31193d333435c8f430` passed [workflow 34821277783](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34821277783). This is software evidence, not SITL, bench or flight evidence.
+- The first live merge reconciliation was observed. P01 and P02 meet their scoped planning/tracking acceptance; ongoing evidence maintenance remains L04.
+- Started a reviewable implementation with editable camera connection presets, explicit fixed/gimbal modes, fail-closed gimbal attitude transformation, bounded receive-time matching, diagnostics and per-stream calibration identity.
+- Added a Wingxtra applet derived from upstream `plane_precland.lua` at `9456449a442617b2af1c3132b64c3120f1694583`, retaining GPL provenance. The applet keeps fixed mode independent of mount APIs and supports measured, optional opt-in gimbal pointing.
+- Corrected F05 so fixed-camera milestone M2 no longer depends on gimbal test T08 or release test T14, resolving the review finding on PR #35.
+- Remaining: code review/CI, version-matched Lua/SITL, actual camera/gimbal identity, latency and lever-arm measurements, CM4/Pixhawk bench tests, approved recovery policy and controlled flight evidence.
+
 ## Entry template
 
 Copy for the next meaningful change:

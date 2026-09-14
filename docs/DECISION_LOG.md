@@ -11,9 +11,10 @@ Last reviewed: 2026-09-14. Accepted architectural direction is not evidence of i
 | D03 | 2026-09-14 | Accepted sequence | Validate fixed-camera integration first, then one gimbal in downward operation. Active search/tracking is deferred. |
 | D04 | 2026-09-14 | User selected | CM4 8GB RAM / 32GB eMMC with Holybro Pixhawk 6X CM4 baseboard. This selects hardware; exact software/camera compatibility and performance remain unverified. |
 | D05 | 2026-09-14 | Accepted constraint | Preserve a vision-derived target-distance path without an implicit additional rangefinder requirement. The aircraft's own navigation/altitude solution is still required. |
-| D06 | 2026-09-14 | Current work scope | Create and maintain the plan/tracker now. Do not implement gimbal support or the new applet until a subsequent user instruction authorises it. Record that instruction when it occurs; do not treat this as a permanent prohibition. |
+| D06 | 2026-09-14 | Superseded by D09 | Initial instruction limited work to planning and tracking. The later explicit implementation instruction is recorded without erasing this earlier scope boundary. |
 | D07 | 2026-09-14 | Tracking direction | Update task status/evidence with each meaningful change. Use PR events to reconcile review/merge progress, with no autonomous flight-code changes, deployments or merges. |
 | D08 | 2026-09-14 | Accepted boundary | Keep the current BODY_FRD position-output interface. Specify reference point, offsets, timing and downstream compensation before adding dynamic geometry. No gimbal quaternion in the target-orientation field. |
+| D09 | 2026-09-14 | Implementation authorised | User explicitly authorised selectable fixed/gimbal camera support and a Wingxtra adaptation of the QuadPlane precision-landing applet. Implementation may proceed through review and software validation; SITL, bench, aircraft settings, deployment and flight qualification remain separate gates. |
 
 ## Open decisions and inputs
 

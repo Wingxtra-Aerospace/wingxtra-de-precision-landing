@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 import math
 import socket
 import struct
@@ -12,6 +13,7 @@ import numpy as np
 from pymavlink.dialects.v20 import common as mavlink
 
 from ..config import OutputConfig
+from ..gimbal import GimbalAttitude
 
 
 class LandingTargetEncoder:
@@ -72,6 +74,7 @@ class RouterLink:
         self.seen_heartbeat = False
         self.backlogged = False
         self.sent = 0
+        self.gimbal_attitudes = deque(maxlen=200)
 
     def poll(self, now=None):
         started = time.monotonic()
@@ -121,9 +124,51 @@ class RouterLink:
                     self.peer = peer
                     self.last_heartbeat = received
                     self.armed = bool(msg.base_mode & mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
+                elif (
+                    msg.get_type() == "GIMBAL_DEVICE_ATTITUDE_STATUS"
+                    and msg.get_srcSystem() == self.config.target_system
+                    and peer == self.peer
+                    and self.fresh(current)
+                    and 0 <= age <= self.config.heartbeat_timeout_s
+                ):
+                    try:
+                        q = tuple(float(value) for value in msg.q)
+                        if len(q) != 4:
+                            continue
+                        self.gimbal_attitudes.append(
+                            GimbalAttitude(
+                                quaternion=q,
+                                flags=int(msg.flags),
+                                failure_flags=int(msg.failure_flags),
+                                delta_yaw=float(getattr(msg, "delta_yaw", float("nan"))),
+                                component_id=int(msg.get_srcComponent()),
+                                device_id=int(getattr(msg, "gimbal_device_id", 0)),
+                                received_monotonic=received,
+                                time_boot_ms=int(msg.time_boot_ms),
+                            )
+                        )
+                    except (TypeError, ValueError, OverflowError):
+                        continue
         else:
             # A pending newer armed/lost-link state must not be hidden behind telemetry.
             self.backlogged = True
+
+    def gimbal_attitude(
+        self, frame_monotonic, *, component_id=0, device_id=0, max_skew_s=0.15
+    ):
+        candidates = [
+            sample
+            for sample in self.gimbal_attitudes
+            if (component_id == 0 or sample.component_id == component_id)
+            and (device_id == 0 or sample.device_id == device_id)
+        ]
+        if not candidates:
+            return None, "Waiting for matching gimbal attitude"
+        sample = min(candidates, key=lambda item: abs(item.received_monotonic - frame_monotonic))
+        skew = abs(sample.received_monotonic - frame_monotonic)
+        if skew > max_skew_s:
+            return None, f"Gimbal attitude is not aligned to the frame ({skew * 1000:.0f} ms)"
+        return sample, None
 
     def fresh(self, now=None):
         now = time.monotonic() if now is None else now
@@ -151,6 +196,7 @@ class RouterLink:
             "peer": list(self.peer) if self.peer else None,
             "sent": self.sent,
             "backlogged": self.backlogged,
+            "gimbal_samples": len(self.gimbal_attitudes),
         }
 
     def close(self):

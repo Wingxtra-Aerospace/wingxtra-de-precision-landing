@@ -97,6 +97,8 @@ def test_api_calibration_required_configuration_lock_and_persistence(
         assert client.get("/health").status_code == 200
         assert client.get("/register_service").json()["works_in_relative_paths"] is True
         assert client.get("/assets/app.js").status_code == 200
+        profiles = client.get("/api/camera-profiles").json()
+        assert profiles["siyi-a8"]["recommended_mode"] == "gimbal"
         assert client.post("/api/control", json={"mode": "publish"}).status_code == 403
         assert (
             client.post("/api/control", headers=headers, json={"mode": "publish"}).status_code
