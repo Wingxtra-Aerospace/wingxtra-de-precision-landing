@@ -1,5 +1,6 @@
 # 1.0.0-rc.2 — second review and failure-case fixes
 
+- Post-merge packaging review: added the author email required by the [BlueOS manifest schema](https://github.com/BlueRobotics/BlueOS/blob/master/core/services/kraken/manifest/models.py), using the public contact on [Wingxtra's company page](https://wingxtra.com/company/). The previous author object failed upstream schema validation. Native container checks now inspect the built image's author metadata as well as startup and service registration. This corrects catalog metadata and does not change the landing engine.
 - Fixed malformed board-corner imports returning HTTP 500, including scalar, object and overflowing integer inputs. Mixed corner winding is now rejected.
 - Fixed mirrored printable tags for boards using y-down coordinates. Tests decode the actual SVG output for both axis conventions, including all ten original-board tags.
 - Replaced application-read heartbeat timestamps with Linux kernel arrival timestamps. Expired queued packets and undrained telemetry backlogs cannot authorize output. UDP datagrams must contain complete MAVLink messages.
