@@ -1,5 +1,7 @@
 > **Historical prototype notes.** These describe the previous native DataBus-only implementation, not the current release. Current instructions are in [README](../README.md), [BlueOS installation](BLUEOS_INSTALL.md) and [commissioning](COMMISSIONING.md).
 
+> **Active tracking:** use [PROJECT_STATUS.md](PROJECT_STATUS.md) and [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). The prototype completion statements below are retained as history and do not establish current integration or flight qualification.
+
 # Wingxtra Precision Landing Milestones
 
 ## Milestone A — Repo is clean, runnable, and safe
