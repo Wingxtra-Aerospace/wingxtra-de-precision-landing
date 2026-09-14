@@ -9,7 +9,15 @@ Append dated entries; retain earlier results and decisions. Current task states 
 - Recorded completed software deliverables separately from unperformed hardware, SITL and aircraft validation. Preserved the earlier milestone/runbook files as historical references.
 - Added task IDs, milestone dependencies, acceptance criteria, unresolved inputs, a validation matrix, decision history, contributor instructions and a PR update checklist.
 - Recorded the selected CM4/Pixhawk hardware, the pending Landmark reference and the reviewed gimbal/QuadPlane limitations. No camera, firmware, numeric operating envelope or failure policy was invented.
-- Planning changes are in review on `codex/precision-landing-roadmap`. Publication and automation results will be recorded before this task is handed back.
+- Published the plan as [PR #35](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/35), initially at `88cb5114ec89ba7e8ebc3147fc68ba7a5ae5bee8`. The remote Git tree exactly matches the locally checked tree. P01 remains in review until merge.
+
+## 2026-09-14 — P02: establish PR event reconciliation
+
+- Created and enabled **Update Wingxtra project progress** for this repository. Supported PR lifecycle, commit, human-review and new-comment events trigger evidence reconciliation after the initial plan is merged.
+- The watcher may propose documentation-only updates through a progress PR. It must not implement deferred features, alter aircraft configuration, deploy, contact other people or merge automatically. It skips unchanged facts and its own bookkeeping loops.
+- Documented coverage limits: direct pushes without PRs, standalone CI completion, edited/deleted comments and offline tests do not directly trigger it. No live event execution is claimed yet. Contributor instructions cover updates during our active work.
+- Checked Markdown links/anchors, task/test ID uniqueness, code-fence balance and whitespace. The change contains only planning/contributor documents and README/archive pointers; runtime code, applets, tests, dependency files, packaging and workflows are unchanged.
+- Next: merge the planning PR, verify the first relevant reconciliation, then resolve the recorded hardware/firmware and operating-policy inputs. Feature implementation remains deferred.
 
 ## Entry template
 

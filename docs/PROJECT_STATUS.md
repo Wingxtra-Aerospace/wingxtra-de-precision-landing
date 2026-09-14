@@ -60,8 +60,8 @@ Owner roles are proposed responsibilities, not assignments to named staff. Engin
 
 | ID | Task / owner role | Status | Dependency or next action | Completion evidence |
 |---|---|---|---|---|
-| P01 | Publish plan, tracker, decisions and test matrix / Engineering | IN REVIEW | Planning branch `codex/precision-landing-roadmap`; link PR in progress history | Merged documents; scope and links checked |
-| P02 | Establish updates during work and on PR events / Engineering | IN PROGRESS | Repository instructions, PR template and external PR watcher | Confirm actual watcher result; document event limits |
+| P01 | Publish plan, tracker, decisions and test matrix / Engineering | IN REVIEW | [Planning PR #35](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/35) | Documents checked and published; merge remains pending |
+| P02 | Establish updates during work and on PR events / Engineering | IN REVIEW | Watcher created and enabled; contributor rules/template in PR #35 | Setup confirmed on 2026-09-14; merge and first live reconciliation remain to be observed |
 | R01 | Pin ArduPlane/ArduCopter, BlueOS, host OS and upstream applet / Integration | BLOCKED | Need intended firmware versions and exact build capabilities | Compatibility record with immutable references, Lua/precland availability and mode support |
 | R02 | Identify cameras, gimbal, feedback and video interfaces / Integration | BLOCKED | Need model/SKU/firmware and control interface | Separate fixed/gimbal capability records; verify feedback semantics and camera geometry |
 | R03 | Define accuracy, range, latency and resource budgets / Product + Engineering | BLOCKED | Need operating envelope and acceptance targets | Numeric pass/fail limits; no unspecified thresholds at qualification |
@@ -99,3 +99,10 @@ Owner roles are proposed responsibilities, not assignments to named staff. Engin
 4. Add Landmark evidence when the card arrives; continue to distinguish that system's success from Wingxtra qualification.
 
 There are no committed calendar delivery dates. Estimate effort after requirements and hardware access are known; record changes without erasing earlier estimates or decisions.
+
+## How updates are maintained
+
+- During active work, update this register, affected decisions and progress history alongside each meaningful change. The [contributor instructions](../AGENTS.md) and [PR checklist](../.github/pull_request_template.md) preserve this requirement for later sessions.
+- A GitHub automation named **Update Wingxtra project progress** was created and enabled on 2026-09-14 for this repository. It responds to supported PR open/ready/close/merge events, new commits on PRs, human reviews and new PR conversation/inline comments. Actual event delivery has not yet been observed at this planning snapshot.
+- After PR #35 is merged, the watcher reads current repository/PR evidence and proposes necessary tracker changes in a documentation-only PR, reusing an open progress PR where possible. It does not implement features, deploy, modify aircraft settings, send messages to other people or merge automatically. No substantive change means no update/notification; its own bookkeeping must not trigger a loop.
+- Standalone pushes without a PR, CI completion by itself, edited/deleted comments and offline bench/flight work are not direct event triggers. Those facts are incorporated during active work or the next relevant review. Supply external test evidence before a hardware or flight task can be marked complete.
