@@ -48,27 +48,29 @@ If validation binds the licence to the Pi's hardware serial, copying a full card
 
 **B01 is reopened.** The [shared estimator](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/blob/ab2f242790d324ef030602f0aa2a5bcbf940f8c5/src/wingxtra_pl/vision_multitag.py) rejects internally consistent, noiseless multi-tag observations on the inspected pip OpenCV build. This failure can affect either fixed or gimbal mode because it occurs before camera-to-body transformation.
 
-Reproduction recipe for a reviewer with authorised access to the hashed attachment:
+The following reproduction is deliberately independent of the Landmark attachment. It uses only the public Wingxtra source and the complete synthetic inputs below, so a maintainer can reproduce the diagnosis without private calibration or board data.
 
-1. Use the pinned Wingxtra source and environment above. Read the A4 JSON unchanged through `LandingTargetLayout.from_dict`, retaining its marker order. Read the calibration matrix as float64 and flatten its five distortion coefficients. Use these numeric inputs directly in `MultiTagPoseEstimator(DetectorConfig(), layout, K, distortion)`. This diagnostic does not claim that the service accepts the foreign calibration file.
-2. Use float64 Rodrigues rotation vector `[pi - 0.18, 0.05, 0.02]` and translation `[0.04, -0.02, depth]`. These are generated camera-frame inputs; `depth` is camera Z, not an aircraft altitude measurement.
-3. For each marker, generate the four exact image corners with `cv2.projectPoints` from the unchanged board coordinates. Supply corners as `(1, 4, 2)` arrays and IDs as an int32 `(4, 1)` array to `estimate_corners`.
-4. Test depths `0.5, 1.0, 2.0, 4.0` and reset `cv2.setRNGSeed` separately to `1, 2, 3` at each depth. Every case has positive point depths and all corners inside the declared 3280×2464 image. The minimum projected edge exceeds the existing 12 px threshold.
-5. Trace the prefilter by resetting the same seed and calling `solvePnPRansac` with all 16 float64 points, `SOLVEPNP_EPNP`, 100 iterations, 3 px reprojection error and confidence 0.999. Apply the production requirement that all four corners of a retained tag be inliers and at least two tags remain.
-6. As a diagnostic control only, call `solvePnPGeneric` with all original points and `SOLVEPNP_IPPE`. Exclude nonpositive-depth solutions and evaluate pixel RMS against those same observations. This control isolates the rejection stage; bypassing outlier rejection is not an implemented or accepted fix.
+1. Construct five `tag36h11` markers in the common z=0 plane. Marker 0 has centre `(0, 0)` and side 0.20 m. Markers 1–4 have side 0.05 m and centres `(-0.25, -0.14)`, `(0.25, -0.14)`, `(-0.25, 0.14)`, `(0.25, 0.14)` metres, respectively. For every centre `(cx, cy)` and half-side `h`, order its corners as `[cx-h, cy+h, 0]`, `[cx+h, cy+h, 0]`, `[cx+h, cy-h, 0]`, `[cx-h, cy-h, 0]`. Load that dictionary through `LandingTargetLayout.from_dict`.
+2. Use a 1280×720 synthetic camera with float64 matrix `[[900, 0, 640], [0, 900, 360], [0, 0, 1]]` and five zero distortion coefficients. Construct `MultiTagPoseEstimator(DetectorConfig(), layout, K, distortion)`.
+3. Use float64 Rodrigues rotation vector `[pi - 0.18, 0.05, 0.02]` and translation `[0.04, -0.02, depth]`. These are generated camera-frame inputs; `depth` is camera Z, not an aircraft altitude measurement.
+4. For each marker, generate the four exact image corners with `cv2.projectPoints`. Supply corners as `(1, 4, 2)` arrays and IDs 0–4 as an int32 `(5, 1)` array to `estimate_corners`.
+5. Test depths `0.5, 0.75, 1.0, 1.5, 2.0, 3.0` and reset `cv2.setRNGSeed` separately to `1, 2, 3` at each depth. Every case has positive point depths, all corners inside the 1280×720 image and minimum projected edge greater than the production 12 px threshold.
+6. As a diagnostic control only, call `solvePnPGeneric` with all original points and `SOLVEPNP_IPPE`. Exclude nonpositive-depth solutions and evaluate pixel RMS against the same observations. This isolates the rejection stage; bypassing outlier rejection is not an implemented or accepted fix.
 
 Each row below has the same result for all three seeds:
 
-| Synthetic depth (m) | Minimum edge (px) | EPNP-RANSAC corner inliers | Complete retained tags | Wingxtra result | Direct IPPE, all points: best RMS (px) |
-|---|---|---|---|---|---|
-| 0.5 | 205.589 | 0; returns false | 0 | No pose | 3.82e-8 |
-| 1.0 | 104.540 | 7 | 0 | No pose | 1.93e-10 |
-| 2.0 | 52.879 | 15 | 3 | Pose using three tags | 1.50e-13 |
-| 4.0 | 26.624 | 16 | 4 | Pose using all four tags | 8.04e-14 |
+| Synthetic depth (m) | Minimum edge (px) | Wingxtra result | Retained IDs | Direct IPPE, all points: best RMS (px) |
+|---|---|---|---|---|
+| 0.5 | 79.742 | No pose | none | 1.42e-12 |
+| 0.75 | 54.959 | No pose | none | 3.07e-13 |
+| 1.0 | 41.937 | No pose | none | 1.21e-13 |
+| 1.5 | 28.453 | Pose | 3, 4 | 2.85e-13 |
+| 2.0 | 21.532 | Pose | 0, 1, 2 | 6.23e-14 |
+| 3.0 | 14.486 | Pose | 0, 1, 2, 3, 4 | 7.52e-14 |
 
-Thus **six of twelve depth/seed cases return no pose**, and only three use all four valid tags. Direct IPPE recovers the known translation with error no greater than `4.56e-11 m` in these noiseless controls. The failure occurs in the RANSAC/whole-tag prefilter, before the final IPPE stage can assess the complete consistent board. This diagnosis does not establish whether an underlying OpenCV implementation detail contributes; the observable Wingxtra failure is reproducible in its declared pip environment.
+Thus **nine of eighteen depth/seed cases return no pose**. At 1.5 m only two of five valid tags survive the prefilter; at 2.0 m only three survive. Direct IPPE fits all complete observations with negligible residual in every row. The failure occurs in the RANSAC/whole-tag prefilter, before the final IPPE stage can assess the complete consistent board. This diagnosis does not establish whether an underlying OpenCV implementation detail contributes; the observable Wingxtra failure is reproducible in its declared pip environment.
 
-Additional limited observations during inspection: at synthetic depth 1.5 m, each of the four tags individually recovers the common origin, while the joint estimator retains only two. A rendered-image check using the existing test helper at 1280×720, zero distortion and focal lengths 900 px detects all four tags, retains three and has approximately 0.0118 m translation error. These are synthetic diagnostic measurements, not camera/aircraft accuracy claims, replay of Landmark images or an accepted operating envelope.
+The original attachment-driven reproduction remains corroborating evidence only: its accepted A4 layout exhibited the same failure pattern. A rendered-image check using the existing test helper at 1280×720 detected all four attachment-defined tags, retained three and had approximately 0.0118 m translation error. These are synthetic diagnostic measurements, not camera/aircraft accuracy claims, replay of Landmark images or an accepted operating envelope.
 
 Earlier CI and rendered-image checks are not withdrawn for their original cases. The new inputs show that those checks did not cover this mixed-size board failure. No implementation or regression test has been changed in this review. The correction must handle valid planar/mixed-size observations while preserving resistance to incorrect IDs/corners, contradictory tags and planar ambiguity, and must be checked in both the pip and Debian OpenCV environments. Physical scale and camera validation remain separate gates.
 
