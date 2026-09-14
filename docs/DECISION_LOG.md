@@ -16,6 +16,8 @@ Last reviewed: 2026-09-14. Accepted architectural direction is not evidence of i
 | D08 | 2026-09-14 | Accepted boundary | Keep the current BODY_FRD position-output interface. Specify reference point, offsets, timing and downstream compensation before adding dynamic geometry. No gimbal quaternion in the target-orientation field. |
 | D09 | 2026-09-14 | Implementation authorised | User explicitly authorised selectable fixed/gimbal camera support and a Wingxtra adaptation of the QuadPlane precision-landing applet. Implementation may proceed through review and software validation; SITL, bench, aircraft settings, deployment and flight qualification remain separate gates. |
 
+| D10 | 2026-09-14 | Implemented; in review | Gimbal BODY_FRD conversion requires measured autopilot attitude plus the reported earth/heading frame. Reuse existing age/skew limits; clocks prime before use and require per-source progression. Duplicates/reordering do not renew samples; uint32 wrap must fit elapsed receive time plus the existing maximum packet age. Backwards clocks do not rebase automatically; a new telemetry session resets them. This is a software validity contract, not an aircraft recovery policy or measured exposure-time guarantee. |
+
 ## Open decisions and inputs
 
 | ID | Required input / decision | Responsible role | Blocks | Resolution record required |

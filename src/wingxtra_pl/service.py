@@ -151,6 +151,8 @@ class LandingService:
             return np.asarray(self.config.mount.camera_to_body) @ pose["tvec"], None
         if self.link is None:
             return None, "Gimbal mode requires the MAVLink telemetry link"
+        if not self.link.fresh(now):
+            return None, "Gimbal mode requires a fresh autopilot heartbeat"
         g = self.config.gimbal
         sample, reason = self.link.gimbal_attitude(
             frame.monotonic,
@@ -163,12 +165,24 @@ class LandingService:
         age = now - sample.received_monotonic
         if not 0 <= age <= g.status_timeout_s:
             return None, "Gimbal attitude is stale"
+        vehicle, reason = self.link.vehicle_attitude(
+            frame.monotonic, max_skew_s=g.max_sample_skew_s
+        )
+        if reason:
+            return None, reason
+        vehicle_age = now - vehicle.received_monotonic
+        if not 0 <= vehicle_age <= g.status_timeout_s:
+            return None, "Aircraft attitude is stale"
+        attitude_skew = abs(vehicle.received_monotonic - sample.received_monotonic)
+        if attitude_skew > g.max_sample_skew_s:
+            return None, "Aircraft and gimbal attitudes are not aligned"
         try:
             body, downward_error = target_in_body(
                 pose["tvec"],
                 sample,
                 g.camera_to_gimbal,
                 g.max_downward_error_deg,
+                vehicle_quaternion=vehicle.quaternion,
             )
         except ValueError as exc:
             return None, str(exc)
@@ -176,6 +190,10 @@ class LandingService:
             "component_id": sample.component_id,
             "device_id": sample.device_id,
             "age_ms": round(age * 1000, 1),
+            "aircraft_age_ms": round(vehicle_age * 1000, 1),
+            "attitude_skew_ms": round(attitude_skew * 1000, 1),
+            "device_time_boot_ms": sample.time_boot_ms,
+            "aircraft_time_boot_ms": vehicle.time_boot_ms,
             "frame_skew_ms": round(abs(sample.received_monotonic - frame.monotonic) * 1000, 1),
             "downward_error_deg": round(downward_error, 2),
             "flags": sample.flags,
