@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from pathlib import Path
+import time
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -37,7 +38,7 @@ def create_app(data_dir: Path, service=None) -> FastAPI:
 
     app = FastAPI(
         title="Wingxtra Precision Landing",
-        version="1.0.0-rc.1",
+        version="1.0.0-rc.2",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
@@ -83,8 +84,8 @@ def create_app(data_dir: Path, service=None) -> FastAPI:
             "name": "Wingxtra Precision Landing",
             "description": "Calibrated multi-tag landing",
             "icon": "mdi-target",
-            "company": "Wingxtra Aerospace",
-            "version": "1.0.0-rc.1",
+            "company": "Wingxtra Aerospace Ltd.",
+            "version": "1.0.0-rc.2",
             "webpage": "/",
             "api": "/openapi.json",
             "works_in_relative_paths": True,
@@ -115,8 +116,10 @@ def create_app(data_dir: Path, service=None) -> FastAPI:
     def preview():
         with service.lock:
             image = service.last_preview
+            if not 0 <= time.monotonic() - service.last_preview_time <= 0.5:
+                image = None
         if image is None:
-            raise HTTPException(404, "Start preview to view the camera")
+            raise HTTPException(404, "No fresh camera preview available")
         return Response(image, media_type="image/jpeg")
 
     @app.get("/api/board")

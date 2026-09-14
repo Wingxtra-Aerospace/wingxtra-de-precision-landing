@@ -1,6 +1,6 @@
 # Commissioning and validation record
 
-Release candidate 1.0.0-rc.1 must be commissioned on each aircraft/camera installation. The code is packaged and software-tested; no aircraft flight-validation result is supplied. Record exact versions and objective results instead of marking the whole system flight-ready from a successful preview.
+Release candidate 1.0.0-rc.2 must be commissioned on each aircraft/camera installation. The code is packaged and software-tested; no aircraft flight-validation result is supplied. Record exact versions and objective results instead of marking the whole system flight-ready from a successful preview.
 
 ## Record before testing
 
@@ -20,7 +20,7 @@ Record repository commit and image digest; BlueOS and host architecture; camera 
 
 ## SITL / hardware-in-the-loop
 
-Use the target ArduCopter version. Exercise the actual LANDING_TARGET input path, target acquisition and loss, estimator settings, camera-offset handling, landing-mode entry and loss/retry behavior. Verify manual takeover and the chosen mission's fallback behavior. Software unit tests here validate protocol and service behavior; they do not substitute for this flight-stack integration test.
+Use the target ArduCopter or QuadPlane firmware version. QuadPlane also requires the version-appropriate flight-controller precision-landing integration described in [the installation guide](BLUEOS_INSTALL.md). Exercise the actual LANDING_TARGET input path, target acquisition and loss, estimator settings, camera-offset handling, landing-mode entry and loss/retry behavior. Verify manual takeover and the chosen mission's fallback behavior. Software unit tests here validate protocol and service behavior; they do not substitute for this flight-stack integration test.
 
 ## Controlled flight expansion
 
@@ -33,6 +33,8 @@ Define measurable limits **before** flight: maximum horizontal error, distance e
 The automated suite covers rendered multiple-tag images (including the supplied original board), common-origin estimation from one tag, outlier rejection, malformed layouts, synthetic calibration recovery, duplicate calibration views, bad calibration imports, packet decoding and sequence wrap, UDP heartbeat source/expiry, DataBus framing, stale/duplicate/lost target rejection, API guards, calibration binding/persistence, relative-path hosting and a complete vision-to-UDP pipeline.
 
 CI additionally tests the Debian/OpenCV container on native AMD64 and ARM64 and checks startup, health and BlueOS registration before exporting/pushing an image. Read the actual workflow result for the commit being installed. Pending CI, live camera, FC integration, timing and flight checks must remain explicitly pending in the aircraft record.
+
+The rc.2 regressions additionally cover delayed/queued heartbeats, pending arming during setup and calibration, stale disarmed state, camera shutdown/cleanup failure, DataBus initialization failure, malformed numeric corner input, and actual exported SVG decoding. Repeat those loss/latency conditions on the installed hardware. See [the second-review record](SECOND_REVIEW.md).
 
 | Acceptance area | Result / evidence | Aircraft owner sign-off |
 |---|---|---|

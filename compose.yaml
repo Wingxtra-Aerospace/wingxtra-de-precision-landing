@@ -3,7 +3,7 @@ services:
     build:
       context: .
       target: final
-    image: wingxtra-precision-landing:1.0.0-rc.1
+    image: wingxtra-precision-landing:1.0.0-rc.2
     network_mode: host
     restart: unless-stopped
     volumes:

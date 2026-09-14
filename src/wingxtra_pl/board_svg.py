@@ -9,8 +9,12 @@ from .landing_target_layout import LandingTargetLayout
 def board_svg(layout: LandingTargetLayout) -> str:
     dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
     groups, bounds = [], []
+    first = next(iter(layout.markers.values())).corners_xyz
+    # Display the printed face for either y-up or y-down imported board coordinates.
+    # A reflection inside a marker changes its bit pattern and makes it unreadable.
+    y_sign = np.sign(np.cross(first[1] - first[0], first[2] - first[1])[2])
     for mid, marker in layout.markers.items():
-        corners = marker.corners_xyz[:, :2] * [1000, -1000]
+        corners = marker.corners_xyz[:, :2] * [1000, 1000 * y_sign]
         p, a, b = corners[0], (corners[1] - corners[0]) / 8, (corners[3] - corners[0]) / 8
         bits = (
             cv2.aruco.generateImageMarker(dictionary, mid, 8)

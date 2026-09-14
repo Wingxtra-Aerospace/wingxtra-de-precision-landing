@@ -42,6 +42,8 @@ class LandingTargetLayout:
 
     @staticmethod
     def from_dict(data: dict) -> "LandingTargetLayout":
+        if not isinstance(data, dict):
+            raise ValueError("Board must be a JSON object")
         target_num = data.get("target_num", 0)
         if type(target_num) is not int or not 0 <= target_num <= 255:
             raise ValueError("target_num must be an integer between 0 and 255")
@@ -50,6 +52,7 @@ class LandingTargetLayout:
             raise ValueError("Board must contain between 1 and 100 markers")
 
         markers: Dict[int, MarkerDef] = {}
+        winding = None
         for m in markers_raw:
             if not isinstance(m, dict):
                 raise ValueError("Each marker must be a JSON object")
@@ -60,9 +63,18 @@ class LandingTargetLayout:
             if type(mid) is not int or not 0 <= mid <= 586 or mid in markers:
                 raise ValueError("Marker IDs must be unique integers between 0 and 586")
             obj = m.get("object_points")
-            if obj is None or len(obj) != 4:
+            if not isinstance(obj, list) or len(obj) != 4:
                 raise ValueError(f"Marker {mid}: expected 4 object_points corners")
-
+            if any(
+                not isinstance(row, list)
+                or len(row) != 3
+                or any(type(value) not in {int, float} for value in row)
+                for row in obj
+            ):
+                raise ValueError(f"Marker {mid}: corners must be a numeric 4x3 matrix")
+            # Check bounds before converting: huge JSON integers can overflow float64.
+            if any(abs(value) > 10 for row in obj for value in row):
+                raise ValueError("Board coordinates exceed 10 metres; check units")
             corners_xyz = np.array(obj, dtype=float)
             if corners_xyz.shape != (4, 3) or not np.isfinite(corners_xyz).all():
                 raise ValueError(f"Marker {mid}: corners must be a finite 4x3 matrix")
@@ -80,8 +92,10 @@ class LandingTargetLayout:
                 atol=lengths.mean() ** 2 * 0.01,
             ):
                 raise ValueError(f"Marker {mid}: corners must be ordered around the square")
-            if np.max(np.abs(corners_xyz)) > 10:
-                raise ValueError("Board coordinates exceed 10 metres; check units")
+            normal_z = float(np.cross(edges[0], edges[1])[2])
+            if winding is not None and normal_z * winding <= 0:
+                raise ValueError("All markers must have consistent corner winding")
+            winding = normal_z
             markers[mid] = MarkerDef(marker_id=mid, family=family, corners_xyz=corners_xyz)
 
         return LandingTargetLayout(target_num=target_num, markers=markers)

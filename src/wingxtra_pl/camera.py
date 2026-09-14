@@ -29,6 +29,7 @@ class Camera:
         self.config = config
         self.latest = None
         self.error = "Camera is starting"
+        self.shutdown_error = None
         self.stop_event = threading.Event()
         self.lock = threading.Lock()
         self.thread = threading.Thread(target=self._run, name="camera", daemon=True)
@@ -97,6 +98,8 @@ class Camera:
                         )
                     sequence += 1
                     with self.lock:
+                        if self.stop_event.is_set():
+                            break
                         self.latest = Frame(frame, sequence, received, time.time_ns() // 1000)
                         self.error = None
             except Exception as exc:
@@ -109,16 +112,28 @@ class Camera:
                 with self.lock:
                     self.latest = None
             finally:
-                if capture is not None:
-                    capture.release()
-                if picam is not None:
-                    picam.close()
+                with self.lock:
+                    self.latest = None
+                try:
+                    if capture is not None:
+                        capture.release()
+                    if picam is not None:
+                        picam.close()
+                except Exception:
+                    self.shutdown_error = "Camera driver cleanup failed; restart the extension"
+                    self.error = self.shutdown_error
+                    self.stop_event.set()
             self.stop_event.wait(1)
 
     def close(self):
         self.stop_event.set()
-        self.thread.join(timeout=5)
+        with self.lock:
+            self.latest = None
+        if self.thread.ident is not None:
+            self.thread.join(timeout=5)
         if self.thread.is_alive():
             raise RuntimeError(
                 "Camera driver did not stop; restart the extension before reopening it"
             )
+        if self.shutdown_error:
+            raise RuntimeError(self.shutdown_error)

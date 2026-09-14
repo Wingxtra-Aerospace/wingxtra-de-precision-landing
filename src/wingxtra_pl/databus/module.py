@@ -13,7 +13,8 @@ import time
 
 class UdpSendClient:
     def __init__(self, host: str, port: int, timeout_s=0.05):
-        self.address = (host, int(port))
+        # Resolve once during setup, never perform blocking DNS in the flight output loop.
+        self.address = (socket.gethostbyname(host), int(port))
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.settimeout(timeout_s)
 
@@ -46,7 +47,7 @@ class CModule:
                 "c": [],
                 "d": ["T"],
                 "e": self.key,
-                "v": "1.0.0-rc.1",
+                "v": "1.0.0-rc.2",
                 "z": True,
                 "u": self.instance_time,
             },

@@ -53,6 +53,27 @@ async function main() {
       path: "test-results/overview-desktop.png",
       fullPage: true,
     });
+    await page.route("**/api/status", (route) => route.abort());
+    await page.waitForFunction(
+      () => document.getElementById("mode").textContent === "Disconnected",
+    );
+    for (const id of [
+      "position-x",
+      "position-y",
+      "position-z",
+      "distance",
+      "reprojection",
+    ]) {
+      assert.equal(await page.locator("#" + id).textContent(), "—");
+    }
+    assert(await page.locator("#preview").isHidden());
+    assert(await page.locator("#cal-start").isDisabled());
+    await delay(400); // A late image response must not make the stale preview visible again.
+    assert(await page.locator("#preview").isHidden());
+    await page.unroute("**/api/status");
+    await page.waitForFunction(
+      () => document.getElementById("position-z").textContent !== "—",
+    );
     for (const tab of [
       "camera",
       "calibration",
