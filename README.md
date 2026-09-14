@@ -4,6 +4,12 @@ A companion-computer service that estimates the **shared landing-board origin fr
 
 **Version 1.0.0-rc.2 is a release candidate for integration and aircraft validation.** Automated software tests do not establish flight qualification. This repository includes the extension, calibration interface, tests, and a commissioning procedure; no camera/aircraft combination is yet listed as flight validated.
 
+## Development plan and progress
+
+The [project status tracker](docs/PROJECT_STATUS.md) records completed work, remaining tasks, blockers and evidence. The [development plan](docs/DEVELOPMENT_PLAN.md) covers fixed cameras, future gimbal support and a Wingxtra QuadPlane applet. See also the [decision log](docs/DECISION_LOG.md), [validation matrix](docs/VALIDATION_MATRIX.md) and [progress history](docs/PROGRESS_LOG.md).
+
+This roadmap is currently a planning deliverable. Dynamic gimbal support and the Wingxtra applet have not been implemented. Updates to work and requirements must update the tracker and evidence alongside the change.
+
 ## What is included
 
 - Original joint board-pose implementation with AprilTag `tag36h11`, robust multi-tag fitting and whole-tag outlier rejection. A single visible known tag can still locate the common board origin.
