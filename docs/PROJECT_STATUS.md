@@ -2,7 +2,7 @@
 
 Owner: Wingxtra Aerospace Ltd. · Last reviewed: 2026-09-14
 
-**Current scope: explicit fixed/gimbal camera modes and the Wingxtra QuadPlane applet are merged on main; integration and qualification are in progress.** Aircraft configuration, deployment and flight qualification remain unperformed and require their own evidence. The merged software remains a release candidate.
+**Current scope: explicit fixed/gimbal camera modes and the Wingxtra QuadPlane applet are merged on main and pass automated software validation.** Version-matched SITL, physical bench integration, aircraft configuration, deployment and flight qualification remain unperformed and require their own evidence. The merged software remains a release candidate.
 
 This is the authoritative progress register. Read the [development plan](DEVELOPMENT_PLAN.md), [decisions and open questions](DECISION_LOG.md), [validation matrix](VALIDATION_MATRIX.md) and [progress history](PROGRESS_LOG.md) alongside it. The old [prototype milestones](MILESTONES.md) are historical.
 
@@ -16,6 +16,15 @@ This is the authoritative progress register. Read the [development plan](DEVELOP
 | Selected hardware | User selected CM4 8GB RAM / 32GB eMMC with Holybro Pixhawk 6X CM4 baseboard. Selection is confirmed; operation of this assembly with Wingxtra is not yet verified. |
 | Flight qualification | None recorded for Wingxtra. No physical-camera benchmark, completed Wingxtra SITL landing or aircraft landing was available during the software reviews. |
 | Reference system | User reports successful Landmark operation and intends to supply its memory-card contents. The files have not been supplied or examined. |
+
+## Merge-integrity review — 2026-09-14
+
+The user requested a review after resolving conflicts between PR #36 and PR #37. Main at [`d6ed94a5474ba869b15299b1d4cfa310c816cc84`](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/commit/d6ed94a5474ba869b15299b1d4cfa310c816cc84) preserves the complete PR #36 implementation. Compared with tested source `176c9e0c3b761a158b88058049c0176d6bb68fe1`, only the five tracking documents differ. Main's tree `23e7fe8f4f42aab858d56133adc263b39d32faaa` also matches the final PR #37 head `0be3fd0ed15adbe9aa94f95b011c330f5b78aab4`. No conflict markers, whitespace errors or lost runtime/applet/test changes were found.
+
+- [Final-merge workflow 34846268164](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34846268164), attempt 1, completed successfully at 2026-09-14 13:00:43 UTC. [Python job 103982856299](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34846268164/job/103982856299) reports **126 Python tests passed**, **12 Lua API-stub scenarios passed**, and passing lint, formatting and browser checks. Two Python dependency deprecation warnings remain.
+- [AMD64 job 103983220517](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34846268164/job/103983220517) and [ARM64 job 103983220530](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34846268164/job/103983220530) pass. Their test-build layers are cached; this run freshly exercises container startup, BlueOS metadata, health and disabled output. The earlier post-merge run 34841164832 below independently executed all 126 tests on each native architecture.
+- [Manifest job 103983887907](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34846268164/job/103983887907) publishes `ghcr.io/wingxtra-aerospace/wingxtra-de-precision-landing:sha-d6ed94a5474ba869b15299b1d4cfa310c816cc84`, digest `sha256:95d5316e4f9752a960cb575dbd49dbe536d70ce2c0cb0caf784f6d3af01b22e7`. Artifacts: [Python results 10347743139](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34846268164/artifacts/10347743139), [AMD64 archive 10348067713](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34846268164/artifacts/10348067713), [ARM64 archive 10347104925](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34846268164/artifacts/10347104925). Publication does not prove installation on the selected CM4.
+- A fresh checkout of that main commit also passes **126 Python tests** (two dependency deprecation warnings), Ruff lint/format, JavaScript syntax and the **12 Lua API-stub scenarios** locally. This review confirms merge integrity and software validation; F02–F03, G01–G05 and all SITL/bench/flight acceptance gates remain open as scoped below.
 
 ## Merged camera/gimbal implementation
 
@@ -34,9 +43,9 @@ This is the authoritative progress register. Read the [development plan](DEVELOP
 | Run artifacts | [python-test-results, 10342131718](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34830596708/artifacts/10342131718); [blueos-image-amd64, 10342002551](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34830596708/artifacts/10342002551); [blueos-image-arm64, 10342471042](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34830596708/artifacts/10342471042). Job logs and artifact metadata were inspected. The archives were not independently installed on the selected CM4. |
 | [Post-merge CI run 34841164832](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34841164832), last updated 2026-09-14 12:05:53 UTC | Completed successfully for merge `4819cebf823f573c738f343304556fa85ffdb88d`: [Python job 103966236658](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34841164832/job/103966236658), [AMD64 job 103966538527](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34841164832/job/103966538527), [ARM64 job 103966538606](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34841164832/job/103966538606) and [manifest job 103967428823](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34841164832/job/103967428823) all pass. The Python and both container runs report 126 tests; Lua stubs, browser, native builds and startup/health checks pass. |
 | Post-merge artifacts | [python-test-results, 10345699451](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34841164832/artifacts/10345699451); [blueos-image-amd64, 10345879304](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34841164832/artifacts/10345879304); [blueos-image-arm64, 10345993646](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34841164832/artifacts/10345993646). Archive SHA-256: `fc56618bc…c784`, `7b0cc7d6…ffc8`, `19bc8d24…7b3c`; full values remain in GitHub artifact metadata. |
-| Published candidate manifest | The workflow pushed immutable architecture tags and combined `ghcr.io/wingxtra-aerospace/wingxtra-de-precision-landing:sha-4819cebf823f573c738f343304556fa85ffdb88d`, manifest digest `sha256:f1c4de51d21dc098b99d9b00298835ee90d7f969fd2d90bffdeef8c56449a90d`. Publication is traceability evidence; no CM4 installation or deployment is claimed. |
+| Published candidate manifest | The workflow pushed commit-qualified architecture tags and combined `ghcr.io/wingxtra-aerospace/wingxtra-de-precision-landing:sha-4819cebf823f573c738f343304556fa85ffdb88d`, manifest digest `sha256:f1c4de51d21dc098b99d9b00298835ee90d7f969fd2d90bffdeef8c56449a90d`. Publication is traceability evidence; no CM4 installation or deployment is claimed. |
 
-Artifact archive digests reported by GitHub for this run are:
+Artifact archive digests reported by GitHub for **PR-head run 34830596708** (source `176c9e0c3b761a158b88058049c0176d6bb68fe1`), not either post-merge run, are:
 
 | Artifact | Archive SHA-256 (not an installed image digest) |
 |---|---|
@@ -46,7 +55,7 @@ Artifact archive digests reported by GitHub for this run are:
 
 ## Earlier implementation review — PR #36
 
-[PR #35](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/35) merged the tracker as `5194f27551b4fad534915fbdd21e4d16febb77ff`. [PR #36](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36) was open, ready for review and unmerged at [`fa363e5680e577784194b3f023f114eecf16e055`](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/commit/fa363e5680e577784194b3f023f114eecf16e055). Its implementation is present on the PR branch only.
+[PR #35](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/35) merged the tracker as `5194f27551b4fad534915fbdd21e4d16febb77ff`. [PR #36](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36) was open, ready for review and unmerged at [`fa363e5680e577784194b3f023f114eecf16e055`](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/commit/fa363e5680e577784194b3f023f114eecf16e055). At that earlier snapshot, its implementation was present on the PR branch only.
 
 The unused `half` assignment was removed in `e8b19575bcf404a59765b447f78ad2d0dc369ad2`. Commit `fa363e5680e577784194b3f023f114eecf16e055` removes the unused NumPy import, fixes formatting and corrects the applet's `mount:get_attitude_euler` return order. It preserves the earlier fix.
 
@@ -119,7 +128,7 @@ Owner roles are proposed responsibilities, not assignments to named staff. Engin
 | REF01 | Compare Landmark with Wingxtra / Engineering | BLOCKED | Waiting for user-supplied files, settings and optional successful logs | Read-only review and reproducible comparisons; source/binary limitations recorded. Does not block independent Wingxtra development. |
 | F01 | Vendor a versioned Wingxtra QuadPlane applet / Engineering | DONE | Merged in PR #36; R01/R04/R05 separately gate firmware/SITL and aircraft acceptance | Applet pins upstream `9456449a442617b2af1c3132b64c3120f1694583`, preserves GPL-3.0-or-later provenance and documents installation |
 | F02 | Correct acceptance order and robust applet guards / Engineering | IN PROGRESS | Independent applet review and version-matched Lua/SITL tests remain | The corrected roll/pitch/yaw return handling and guards are merged as `4819cebf823f573c738f343304556fa85ffdb88d`; all 12 Lua API-stub scenarios pass in post-merge CI run 34841164832, including missing feedback and fixed-mode independence. Firmware/SITL acceptance remains pending. |
-| F03 | Add flight-controller readiness and loss supervision / Engineering | IN PROGRESS | R04–R05 remain required for policy completion | Proposed applet fails closed on unavailable target/gimbal inputs; total companion failure and target-loss aircraft policy are not yet accepted |
+| F03 | Add flight-controller readiness and loss supervision / Engineering | IN PROGRESS | R04–R05 remain required for policy completion | Merged applet withholds navigation updates on unavailable target/gimbal inputs; total companion failure and target-loss aircraft policy are not yet accepted |
 | F04 | Preserve fixed-camera operation and introduce explicit camera modes / Engineering | DONE | Merged in PR #36; physical fixed-camera commissioning remains F05 | Automated regressions show `fixed` retains the constant BODY_FRD transform and never calls the mount API; `gimbal` selection is explicit. CI run 34841164832 passes on the merge. |
 | F05 | Commission fixed camera on CM4/BlueOS/Pixhawk and simulate intended modes / Integration | PLANNED | F02–F04, R01–R03 | Fixed-camera portions of T01–T04 and T09–T13; measured load, latency, power and routing. T08 remains under M4 and T14 under M6. |
 | V01 | Prepare fixed-camera flight test and recovery procedure / Flight test | PLANNED | M2, R03–R04 | Approved envelope, locations, operator authority and pass/fail criteria |
@@ -142,10 +151,11 @@ Owner roles are proposed responsibilities, not assignments to named staff. Engin
 
 ## Immediate next actions
 
-1. Review the merged G01–G05 implementation and complete version-matched SITL plus CM4/camera/gimbal/Pixhawk integration gates. PR #36 and post-merge CI run 34841164832 establish source and automated validation, not hardware or aircraft acceptance.
-2. Record exact flight firmware and fixed-camera/gimbal models when available (R01–R02).
-3. Agree measurable landing requirements and failure behaviour (R03–R04).
-4. Add Landmark evidence when the card arrives; continue to distinguish that system's success from Wingxtra qualification.
+1. Pin the intended ArduPlane/ArduCopter builds, BlueOS/host versions and first fixed-camera model/optics (R01–R02). Agree measurable landing requirements and acquisition, target-loss, operator-override and companion/applet-failure behaviour (R03–R04).
+2. Complete F02–F03 review and version-matched fixed-camera SITL for the intended flight modes and failure cases. The local Lua harness checks mount handling with API stubs; it does not exercise all T09–T12 navigation or recovery cases.
+3. Commission the fixed-camera path on the selected CM4/Pixhawk assembly (F05): calibration and physical board scale, axes/offsets, routing, latency, startup, power and thermal/load measurements. Proceed to V01–V03 controlled flight qualification only after the applicable gates pass.
+4. Identify and integrate one gimbal (G01–G06), measure exposure/attitude timing and optical-centre offsets, and verify pointing ownership and failure behaviour. Preserve fixed-camera regressions and complete Q01–Q03 before claiming gimbal flight qualification. Active search/tracking remains deferred.
+5. Add Landmark evidence when the card arrives without blocking independent integration work; package matched extension/applet versions and tested rollback under L01 when integration evidence supports the release.
 
 There are no committed calendar delivery dates. Estimate effort after requirements and hardware access are known; record changes without erasing earlier estimates or decisions.
 

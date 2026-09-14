@@ -21,7 +21,7 @@ Last reviewed: 2026-09-14. Accepted architectural direction is not evidence of i
 
 | ID | Required input / decision | Responsible role | Blocks | Resolution record required |
 |---|---|---|---|---|
-| O01 | Exact ArduPlane and intended ArduCopter builds; Pixhawk revision; scripting/precland features; BlueOS and ARM64 host versions | Integration | R01, F01, hardware tests | Versions/hashes, build options and verified Lua bindings. If Copter is out of initial scope, record that explicitly. |
+| O01 | Exact ArduPlane and intended ArduCopter builds; Pixhawk revision; scripting/precland features; BlueOS and ARM64 host versions | Integration | R01, F02/F05 firmware and integration acceptance | Versions/hashes, build options and verified Lua bindings. F01's scoped vendoring is complete; installed-firmware compatibility is not. If Copter is out of initial scope, record that explicitly. |
 | O02 | Fixed camera and first gimbal model, firmware, lens, stream format and control/feedback protocol | Integration | R02; affected camera path | Capability report including actual attitude, timestamps, flags, IDs and optical geometry. A brand name alone is insufficient. |
 | O03 | Landing accuracy limits, acquisition/descent envelope, light/wind/motion conditions and resource/timing budgets | Product + Flight test | R03; qualification | Numeric thresholds, measurement method and required repetitions. No assumed centimetre/FPS claims. |
 | O04 | Acquisition timeout, target-loss response, operator override, transition/abort handling and final correction cutoff | Product + Flight test | R04, F03, G04 | Explicit state table for each intended mode; response when the CM4 or applet fails completely. |
@@ -29,7 +29,7 @@ Last reviewed: 2026-09-14. Accepted architectural direction is not evidence of i
 | O06 | Sensor reference point and gimbal optical-centre movement; camera/FC offset settings and calibration migration | Engineering + Integration | R05, G03 | Transform diagrams/equations, measured offsets and proof that compensation is applied once. |
 | O07 | Rangefinder-equipped versus vision-only deployment and the applet's altitude cutoff | Product + Integration | R04–R05, F03 | Supported variants and fallback behaviour; distinguish slant range from vertical height. |
 | O08 | Proposed health/readiness channel between CM4 and FC | Engineering | R05, F03, G05 | Version, source identity, expiry, reboot handling and interpretation of missing data. Finalise before coding. |
-| O09 | Distribution/licensing of the upstream-derived applet and reference datasets | Engineering/release owner | F01, L01 | Preserve upstream provenance/licence; review intended distribution. No automatic MIT relicensing or inclusion of proprietary reference files. |
+| O09 | Distribution/licensing of the upstream-derived applet and reference datasets | Engineering/release owner | L01 distribution acceptance | F01 preserves upstream provenance/licence; review the intended distribution before release. No automatic MIT relicensing or inclusion of proprietary reference files. |
 | O10 | Landmark source/image availability and successful reference recordings | User + Integration | REF01 only | Inventory, source availability, configuration and limits of comparison. |
 
 ## Change procedure
