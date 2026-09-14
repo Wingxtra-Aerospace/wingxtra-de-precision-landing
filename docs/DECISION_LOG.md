@@ -30,7 +30,7 @@ Last reviewed: 2026-09-14. Accepted architectural direction is not evidence of i
 | O07 | Rangefinder-equipped versus vision-only deployment and the applet's altitude cutoff | Product + Integration | R04–R05, F03 | Supported variants and fallback behaviour; distinguish slant range from vertical height. |
 | O08 | Proposed health/readiness channel between CM4 and FC | Engineering | R05, F03, G05 | Version, source identity, expiry, reboot handling and interpretation of missing data. Finalise before coding. |
 | O09 | Distribution/licensing of the upstream-derived applet and reference datasets | Engineering/release owner | L01 distribution acceptance | F01 preserves upstream provenance/licence; review the intended distribution before release. No automatic MIT relicensing or inclusion of proprietary reference files. |
-| O10 | Landmark source/image availability and successful reference recordings | User + Integration | REF01 only | Inventory, source availability, configuration and limits of comparison. |
+| O10 | Remaining Landmark application/root filesystem, active configuration and successful reference recordings | User + Integration | REF01 comparison completion | Boot archive supplied and inspected in [LMBOOT-001](LANDMARK_REFERENCE_REVIEW.md), 2026-09-14. Calibration and two layouts are available; application/source, active configuration and recorded observations are still missing. Do not infer installed hardware or sensor requirements from boot overlays/calibration dimensions. The resulting Wingxtra B01 defect is independently actionable and does not require the missing Landmark code. |
 
 ## Change procedure
 

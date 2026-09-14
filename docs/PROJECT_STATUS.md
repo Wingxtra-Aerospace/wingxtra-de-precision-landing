@@ -2,7 +2,7 @@
 
 Owner: Wingxtra Aerospace Ltd. · Last reviewed: 2026-09-14
 
-**Current scope: explicit fixed/gimbal camera modes and the Wingxtra QuadPlane applet are merged on main and pass automated software validation.** Version-matched SITL, physical bench integration, aircraft configuration, deployment and flight qualification remain unperformed and require their own evidence. The merged software remains a release candidate.
+**Current scope: explicit fixed/gimbal camera modes and the Wingxtra QuadPlane applet are merged on main; their previously recorded automated checks pass. A new multi-tag pose rejection has reopened B01.** Version-matched SITL, physical bench integration, aircraft configuration, deployment and flight qualification remain unperformed and require their own evidence. The merged software remains a release candidate with an unresolved vision defect.
 
 This is the authoritative progress register. Read the [development plan](DEVELOPMENT_PLAN.md), [decisions and open questions](DECISION_LOG.md), [validation matrix](VALIDATION_MATRIX.md) and [progress history](PROGRESS_LOG.md) alongside it. The old [prototype milestones](MILESTONES.md) are historical.
 
@@ -15,7 +15,16 @@ This is the authoritative progress register. Read the [development plan](DEVELOP
 | Candidate version | `1.0.0-rc.2`. Installation must identify the tested commit/image, not an assumed latest tag. |
 | Selected hardware | User selected CM4 8GB RAM / 32GB eMMC with Holybro Pixhawk 6X CM4 baseboard. Selection is confirmed; operation of this assembly with Wingxtra is not yet verified. |
 | Flight qualification | None recorded for Wingxtra. No physical-camera benchmark, completed Wingxtra SITL landing or aircraft landing was available during the software reviews. |
-| Reference system | User reports successful Landmark operation and intends to supply its memory-card contents. The files have not been supplied or examined. |
+| Reference system | User reports successful Landmark operation and has supplied a boot-partition archive. Calibration and two board layouts were inspected; no Landmark landing application, active runtime configuration or successful flight logs were located. [Restricted-input comparison and evidence](LANDMARK_REFERENCE_REVIEW.md). REF01 remains partially completed and blocked on the remaining inputs. |
+
+## Landmark boot-data review — 2026-09-14
+
+Inspected the supplied archive against main [`ab2f242790d324ef030602f0aa2a5bcbf940f8c5`](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/commit/ab2f242790d324ef030602f0aa2a5bcbf940f8c5). [Evidence record LMBOOT-001](LANDMARK_REFERENCE_REVIEW.md) identifies the archive and relevant files by SHA-256, records loader results and provides the synthetic reproduction recipe. This is local data/software analysis, not Landmark execution, replay of recorded images, SITL, bench or flight evidence.
+
+- The four-tag A4 layout loads without modification. The fifteen-tag Fibonacci layout reaches the existing 5 m marker-edge guard under Wingxtra's metre interpretation; its physical scale and whether it was active remain unknown. The 3280×2464 calibration does not meet Wingxtra's schema, identity/quality metadata or current height limit. No conversion or limit change was made.
+- **B01 is reopened:** at Python 3.12.14 / NumPy 2.5.3 / OpenCV 4.13.0, exact projected observations of the accepted A4 layout are rejected at synthetic camera depths 0.5 m and 1.0 m for each of three seeds. All corners are visible, at positive depth and above the existing minimum edge size. The EPNP-RANSAC prefilter rejects/discards valid corners before IPPE can solve the complete board; direct IPPE fits the same complete observations with negligible residual. Six of twelve depth/seed cases return no pose. These depths are diagnostic inputs, not declared aircraft operating limits.
+- Earlier rendered-image/CI passes remain evidence for their exercised cases; they did not establish robustness for these new inputs. The shared vision core affects both camera modes. Correct B01 and add regression coverage across the declared OpenCV environments before F05/M2 acceptance; do not remove outlier rejection simply to admit this board.
+- REF01/O10 remain open pending the Linux root filesystem or installed Landmark application and startup/configuration files, plus identified hardware/settings and reference observations/logs. A complete image may contain an executable without source. This archive alone cannot establish Landmark's joint-tag algorithm, range/altimeter requirements, gimbal handling or aircraft behaviour.
 
 ## Merge-integrity review — 2026-09-14
 
@@ -86,11 +95,11 @@ The illustrative inputs above are diagnostic stimuli, not operating limits. That
 
 Do not invent percentage completion from task counts. Implementation, automated tests, SITL, bench tests and flight qualification are separate evidence levels. When a change invalidates evidence, reopen the affected task and record why.
 
-## Completed baseline deliverables
+## Baseline deliverables
 
 | ID | Deliverable | Status | Evidence / remaining boundary |
 |---|---|---|---|
-| B01 | Calibrated multi-tag board-origin estimation | DONE | [PR #32](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/32); rendered-image tests. Physical scale, optics and operating envelope need field measurements. |
+| B01 | Calibrated multi-tag board-origin estimation | IN PROGRESS | Reopened by [LMBOOT-001](LANDMARK_REFERENCE_REVIEW.md#synthetic-pose-rejection): valid mixed-size planar observations are rejected on OpenCV 4.13.0. Diagnosis is complete; a correction and regression tests are not implemented. [PR #32](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/32) rendered-image evidence remains valid for its original cases. Physical scale/optics/envelope acceptance remains separate. |
 | B02 | Fixed-mount BODY_FRD position output with PnP distance | DONE | [Encoder](../src/wingxtra_pl/mavlink_out/udp.py); decoded-message tests. This records the fixed-camera baseline; dynamic gimbal support was added later in PR #36. |
 | B03 | Calibration/setup UI and calibration identity checks | DONE | PR #32 and [second review](SECOND_REVIEW.md); numerical and browser checks. Aircraft calibration remains required. |
 | B04 | RTSP/MJPEG/V4L2 adapters and native Picamera2 path | DONE | [Installation guide](BLUEOS_INSTALL.md); implementation present. No blanket camera-driver or hardware compatibility claim. |
@@ -105,7 +114,7 @@ Do not invent percentage completion from task counts. Implementation, automated 
 |---|---|---|---|
 | M0 | Living plan and tracking workflow | DONE | P01–P02; PR #35 merged and the first live merge reconciliation was observed. |
 | M1 | Requirements, compatibility and interface contracts | BLOCKED | R01–R05. Gimbal-specific unknowns must not prevent unrelated fixed-camera planning. |
-| M2 | Fixed-camera QuadPlane integration baseline | IN PROGRESS | F01/F04 are merged; F02–F03 and F05 SITL/bench acceptance remain. |
+| M2 | Fixed-camera QuadPlane integration baseline | IN PROGRESS | F01/F04 are merged; reopened B01, F02–F03 and F05 SITL/bench acceptance remain. |
 | M3 | Fixed-camera aircraft qualification | PLANNED | V01–V03; depends on M2 and approved test envelope. |
 | M4 | First gimbal in downward landing operation | IN PROGRESS | G01–G05 have merged software implementation and T06/T07 regressions; M2, gimbal-specific M1 inputs, G06 and integrated acceptance remain required. |
 | M5 | Gimbal integration and aircraft qualification | PLANNED | Q01–Q03; depends on M3 and M4, with fixed-camera regression evidence. |
@@ -125,12 +134,12 @@ Owner roles are proposed responsibilities, not assignments to named staff. Engin
 | R03 | Define accuracy, range, latency and resource budgets / Product + Engineering | BLOCKED | Need operating envelope and acceptance targets | Numeric pass/fail limits; no unspecified thresholds at qualification |
 | R04 | Decide acquisition, target-loss, override and touchdown policy / Product + Flight test | BLOCKED | Resolve O04 in decision log | State/transition table, authority and fallback policy for every intended mode |
 | R05 | Finalise coordinate, timing, health and version contracts / Engineering | IN PROGRESS | D10 documents the implemented frame/clock handling; exposure-time mapping, R01–R04 and aircraft recovery policy remain open | Reviewed interfaces, measured timing and migration design still required; receipt-time bounds are not exposure-time synchronisation |
-| REF01 | Compare Landmark with Wingxtra / Engineering | BLOCKED | Waiting for user-supplied files, settings and optional successful logs | Read-only review and reproducible comparisons; source/binary limitations recorded. Does not block independent Wingxtra development. |
+| REF01 | Compare Landmark with Wingxtra / Engineering | BLOCKED | Boot-data inspection complete; need the root filesystem/application, startup and active configuration, hardware/settings and reference recordings | [LMBOOT-001](LANDMARK_REFERENCE_REVIEW.md) records calibration/layout compatibility and a Wingxtra synthetic failure. Landmark's algorithm and observed output remain unexamined. Missing reference inputs do not block independent Wingxtra work; the confirmed B01 defect does gate Wingxtra acceptance. |
 | F01 | Vendor a versioned Wingxtra QuadPlane applet / Engineering | DONE | Merged in PR #36; R01/R04/R05 separately gate firmware/SITL and aircraft acceptance | Applet pins upstream `9456449a442617b2af1c3132b64c3120f1694583`, preserves GPL-3.0-or-later provenance and documents installation |
 | F02 | Correct acceptance order and robust applet guards / Engineering | IN PROGRESS | Independent applet review and version-matched Lua/SITL tests remain | The corrected roll/pitch/yaw return handling and guards are merged as `4819cebf823f573c738f343304556fa85ffdb88d`; all 12 Lua API-stub scenarios pass in post-merge CI run 34841164832, including missing feedback and fixed-mode independence. Firmware/SITL acceptance remains pending. |
 | F03 | Add flight-controller readiness and loss supervision / Engineering | IN PROGRESS | R04–R05 remain required for policy completion | Merged applet withholds navigation updates on unavailable target/gimbal inputs; total companion failure and target-loss aircraft policy are not yet accepted |
 | F04 | Preserve fixed-camera operation and introduce explicit camera modes / Engineering | DONE | Merged in PR #36; physical fixed-camera commissioning remains F05 | Automated regressions show `fixed` retains the constant BODY_FRD transform and never calls the mount API; `gimbal` selection is explicit. CI run 34841164832 passes on the merge. |
-| F05 | Commission fixed camera on CM4/BlueOS/Pixhawk and simulate intended modes / Integration | PLANNED | F02–F04, R01–R03 | Fixed-camera portions of T01–T04 and T09–T13; measured load, latency, power and routing. T08 remains under M4 and T14 under M6. |
+| F05 | Commission fixed camera on CM4/BlueOS/Pixhawk and simulate intended modes / Integration | PLANNED | B01 correction/regressions, F02–F04, R01–R03 | Fixed-camera portions of T01–T04 and T09–T13; measured load, latency, power and routing. T02 now includes the reproduced mixed-size planar rejection. T08 remains under M4 and T14 under M6. |
 | V01 | Prepare fixed-camera flight test and recovery procedure / Flight test | PLANNED | M2, R03–R04 | Approved envelope, locations, operator authority and pass/fail criteria |
 | V02 | Perform and analyse controlled fixed-camera flights / Flight test | PLANNED | V01 | Raw logs/video references, configuration hashes, measured accuracy and all failures retained |
 | V03 | Qualify a named fixed-camera aircraft combination / Product + Flight test | PLANNED | V02 | Signed/attributed acceptance for that exact combination; limitations recorded |
@@ -151,11 +160,11 @@ Owner roles are proposed responsibilities, not assignments to named staff. Engin
 
 ## Immediate next actions
 
-1. Pin the intended ArduPlane/ArduCopter builds, BlueOS/host versions and first fixed-camera model/optics (R01–R02). Agree measurable landing requirements and acquisition, target-loss, operator-override and companion/applet-failure behaviour (R03–R04).
+1. Correct the reproduced B01 multi-tag rejection with regression coverage for valid mixed-size planar boards while preserving rejection of contradictory observations (T02). Verify the supported pip and Debian OpenCV paths; no correction is implemented in this documentation review. In parallel, pin the intended ArduPlane/ArduCopter builds, BlueOS/host versions and first fixed-camera model/optics (R01–R02), and agree measurable landing requirements and failure/override behaviour (R03–R04).
 2. Complete F02–F03 review and version-matched fixed-camera SITL for the intended flight modes and failure cases. The local Lua harness checks mount handling with API stubs; it does not exercise all T09–T12 navigation or recovery cases.
 3. Commission the fixed-camera path on the selected CM4/Pixhawk assembly (F05): calibration and physical board scale, axes/offsets, routing, latency, startup, power and thermal/load measurements. Proceed to V01–V03 controlled flight qualification only after the applicable gates pass.
 4. Identify and integrate one gimbal (G01–G06), measure exposure/attitude timing and optical-centre offsets, and verify pointing ownership and failure behaviour. Preserve fixed-camera regressions and complete Q01–Q03 before claiming gimbal flight qualification. Active search/tracking remains deferred.
-5. Add Landmark evidence when the card arrives without blocking independent integration work; package matched extension/applet versions and tested rollback under L01 when integration evidence supports the release.
+5. Obtain the remaining Landmark root-filesystem/application and reference-observation evidence identified in [LMBOOT-001](LANDMARK_REFERENCE_REVIEW.md#remaining-inputs). Confirm the physical board and calibrated stream rather than assuming either supplied layout was active. Package matched extension/applet versions and tested rollback under L01 when integration evidence supports the release.
 
 There are no committed calendar delivery dates. Estimate effort after requirements and hardware access are known; record changes without erasing earlier estimates or decisions.
 

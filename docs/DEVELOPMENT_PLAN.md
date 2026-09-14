@@ -75,7 +75,7 @@ Start with only the intended QuadPlane modes; qualify QLOITER precision hold, QL
 |---|---|---|
 | M0 | Plan/tracker publication | Reviewable documents, update instructions and actual automation status |
 | M1 | Requirements and interfaces | Exact relevant hardware/firmware, measurable budgets, frame/timing/health contracts and flight-state decisions |
-| M2 | Fixed-camera baseline plus applet | Regression tests, intended-mode SITL and integrated CM4/Pixhawk bench evidence; no gimbal required |
+| M2 | Fixed-camera baseline plus applet | Resolve reopened B01/T02 multi-tag rejection with regression evidence, then intended-mode SITL and integrated CM4/Pixhawk bench evidence; no gimbal required |
 | M3 | Fixed-camera qualification | Controlled flights with measured acceptance and recorded limitations |
 | M4 | First downward gimbal | One verified feedback/control adapter, timed geometry, readiness/UI and fixed-camera regressions |
 | M5 | Gimbal qualification | Failure-injection SITL/bench results followed by controlled flights; combination-specific acceptance |
@@ -89,6 +89,8 @@ Use [VALIDATION_MATRIX.md](VALIDATION_MATRIX.md) for scenarios and evidence requ
 ## Landmark comparison — REF01
 
 Inspect a copy of supplied files/image without altering the working original. Inventory source or binaries, camera settings/calibration, tag-board scale, startup services, dependencies, parameters and any successful test logs. Preserve credentials and proprietary code outside this source repository.
+
+The first supplied boot archive is inventoried in [LMBOOT-001](LANDMARK_REFERENCE_REVIEW.md). It provides calibration and board definitions, but no located Landmark application or reference recordings. This partial comparison exposed a reproducible Wingxtra multi-tag rejection and reopened B01/T02. Correct that shared-core defect with planar-board regressions while retaining whole-tag outlier protection; validate both declared OpenCV environments before claiming it resolved. Missing Landmark source does not prevent that correction. Physical layout units, active board, camera identity and calibration migration remain unverified; do not silently alter board scale or bypass calibration checks.
 
 Where possible, replay common recorded observations with the correct configuration for each system and compare measured target vectors, timing, acquisition/loss behaviour and emitted messages. Reproduce confirmed differences as Wingxtra regression cases with known geometry. A working reference is not an oracle for every scenario; matching one flight or copying parameters does not establish equivalence. If source is unavailable, state the limits of behavioural/binary comparison. Do not redistribute Landmark software or datasets without the necessary rights.
 
