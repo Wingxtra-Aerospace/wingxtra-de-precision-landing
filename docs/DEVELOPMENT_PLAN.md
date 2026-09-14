@@ -52,9 +52,9 @@ Recognise actual VTOL landing phases. QRTL includes phases other than vertical d
 
 ### Wingxtra QuadPlane applet — F01–F03
 
-Proposed future location: `autopilot/quadplane/wingxtra_precland.lua`, with adjacent documentation, provenance and licensing. No Lua file is added by this planning change. It runs on the Pixhawk's `APM/scripts`, not on the companion's eMMC. Select the filename and deployment process so the upstream and Wingxtra controllers cannot both run unintentionally.
+The initial plan proposed `autopilot/quadplane/wingxtra_precland.lua`. [PR #36](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36) merged [`applets/wingxtra_plane_precland.lua`](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/blob/4819cebf823f573c738f343304556fa85ffdb88d/applets/wingxtra_plane_precland.lua), with adjacent documentation and GPL provenance. This progress PR adds no Lua file. It runs on the Pixhawk's `APM/scripts`, not on the companion's eMMC. Verify installation so the upstream and Wingxtra controllers cannot both run unintentionally.
 
-Before vendoring, pin upstream commit, supported firmware/bindings and the relevant licence. Preserve notices and track local changes. The current extension is MIT licensed; do not relabel upstream-derived GPL code as MIT or assume folder separation resolves distribution obligations. Review the planned distribution and record the conclusion before releasing the combined package.
+The PR pins upstream commit `9456449a442617b2af1c3132b64c3120f1694583` and preserves GPL-3.0-or-later notices. The intended firmware/build and Lua bindings still require R01 validation; retain provenance and track local changes. The current extension is MIT licensed; do not relabel upstream-derived GPL code as MIT or assume folder separation resolves distribution obligations. Review the planned distribution and record the conclusion before releasing the combined package.
 
 The applet should:
 
@@ -94,11 +94,11 @@ Where possible, replay common recorded observations with the correct configurati
 
 ## Source-review findings
 
-Reviewed on 2026-09-14; these upstream links follow moving branches and must be pinned by R01 before implementation.
+Initial source review on 2026-09-14. These findings describe the starting implementations; PR #36's corrections are tracked in PROJECT_STATUS. The upstream links below follow moving branches; the vendored applet revision is pinned above, while installed-firmware compatibility remains open under R01.
 
 - The [BlueOS application](https://github.com/rmackay9/blueos-precision-landing/blob/main/app/main.py) checks reported gimbal orientation against a downward quaternion with approximately 10° tolerance. It does not command pointing and sends targets when attitude retrieval fails. Its [MAVLink module](https://github.com/rmackay9/blueos-precision-landing/blob/main/app/mavlink_interface.py) sends LOCAL_FRD angles with zero distance, without applying the measured gimbal orientation to every image.
 - The [upstream QuadPlane applet](https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Scripting/applets/plane_precland.lua) consumes the common precland estimate. It checks `PLND_DIST_CUTOFF` after updating the waypoint, returns on target loss and requires downward rangefinder data when its optional altitude cutoff is enabled. These are review findings to address/test, not fixes already made.
 - Current [ArduPilot MAVLink backend](https://github.com/ArduPilot/ardupilot/blob/master/libraries/AC_PrecLand/AC_PrecLand_MAVLink.cpp) and [frontend](https://github.com/ArduPilot/ardupilot/blob/master/libraries/AC_PrecLand/AC_PrecLand.cpp) distinguish BODY_FRD and LOCAL_FRD. Installed firmware may differ. Keep our sensor conversion before controller use and avoid assuming that merely adding Lua corrects camera geometry.
-- Wingxtra currently uses a [constant mount matrix](../src/wingxtra_pl/service.py); [telemetry handling](../src/wingxtra_pl/mavlink_out/udp.py) records autopilot heartbeats, not gimbal/aircraft attitude history. [Architecture limitations](ARCHITECTURE_OVERVIEW.md) explicitly exclude validated moving-gimbal operation.
+- Wingxtra's merged baseline uses a [constant mount matrix](../src/wingxtra_pl/service.py); [telemetry handling](../src/wingxtra_pl/mavlink_out/udp.py) records autopilot heartbeats, not gimbal/aircraft attitude history. [Architecture limitations](ARCHITECTURE_OVERVIEW.md) explicitly exclude validated moving-gimbal operation.
 
 References: [gimbal control](https://ardupilot.org/dev/docs/mavlink-gimbal-mount.html), [gimbal frame/ownership protocol](https://mavlink.io/en/services/gimbal_v2.html), [QuadPlane applet instructions](https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Scripting/applets/plane_precland.md), [upstream licence](https://github.com/ArduPilot/ardupilot/blob/master/COPYING.txt).
