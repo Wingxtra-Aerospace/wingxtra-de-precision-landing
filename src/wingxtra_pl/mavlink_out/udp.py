@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 import math
 import socket
 import struct
@@ -12,6 +13,46 @@ import numpy as np
 from pymavlink.dialects.v20 import common as mavlink
 
 from ..config import OutputConfig
+from ..gimbal import (
+    GimbalAttitude,
+    VehicleAttitude,
+    gimbal_reference_rotation,
+    quaternion_from_euler,
+    rotation_from_quaternion,
+)
+
+
+class _BootClock:
+    """Require device-time progress; arrival alone never renews a measurement.
+
+    The first sample only establishes the counter. Duplicates, backwards values
+    and implausible jumps leave its high-water mark intact. Modulo-uint32 wrap is
+    accepted only when consistent with elapsed receive time plus the existing
+    maximum packet age. A reboot is not inferred from reordered packets: a new
+    telemetry session is required to reset a counter that rolled backwards.
+    """
+
+    def __init__(self, max_packet_age_s):
+        self.max_packet_age_s = max_packet_age_s
+        self.time_boot_ms = None
+        self.received = None
+
+    def advance(self, time_boot_ms, received):
+        if not 0 <= time_boot_ms < 2**32 or not math.isfinite(received):
+            return False
+        if self.time_boot_ms is None:
+            self.time_boot_ms, self.received = time_boot_ms, received
+            return False
+        elapsed = received - self.received
+        delta_ms = (time_boot_ms - self.time_boot_ms) % 2**32
+        if (
+            elapsed < 0
+            or not 0 < delta_ms < 2**31
+            or delta_ms / 1000 > elapsed + self.max_packet_age_s
+        ):
+            return False
+        self.time_boot_ms, self.received = time_boot_ms, received
+        return True
 
 
 class LandingTargetEncoder:
@@ -72,6 +113,13 @@ class RouterLink:
         self.seen_heartbeat = False
         self.backlogged = False
         self.sent = 0
+        self._reset_attitudes()
+
+    def _reset_attitudes(self):
+        self.gimbal_attitudes = deque(maxlen=200)
+        self.vehicle_attitudes = deque(maxlen=200)
+        self.gimbal_clocks = {}
+        self.vehicle_clock = _BootClock(self.config.heartbeat_timeout_s)
 
     def poll(self, now=None):
         started = time.monotonic()
@@ -118,12 +166,115 @@ class RouterLink:
                         continue
                     if self.last_heartbeat is not None and received < self.last_heartbeat:
                         continue
+                    if self.peer != peer:
+                        self._reset_attitudes()
                     self.peer = peer
                     self.last_heartbeat = received
                     self.armed = bool(msg.base_mode & mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
+                elif (
+                    msg.get_type()
+                    in ("GIMBAL_DEVICE_ATTITUDE_STATUS", "ATTITUDE_QUATERNION", "ATTITUDE")
+                    and msg.get_srcSystem() == self.config.target_system
+                    and peer == self.peer
+                    and self.fresh(current)
+                    and 0 <= age <= self.config.heartbeat_timeout_s
+                ):
+                    try:
+                        if msg.get_type() != "GIMBAL_DEVICE_ATTITUDE_STATUS":
+                            if msg.get_srcComponent() != mavlink.MAV_COMP_ID_AUTOPILOT1:
+                                continue
+                            advanced = self.vehicle_clock.advance(int(msg.time_boot_ms), received)
+                            try:
+                                q = (
+                                    tuple(
+                                        float(value) for value in (msg.q1, msg.q2, msg.q3, msg.q4)
+                                    )
+                                    if msg.get_type() == "ATTITUDE_QUATERNION"
+                                    else quaternion_from_euler(msg.roll, msg.pitch, msg.yaw)
+                                )
+                                rotation_from_quaternion(q, "Aircraft")
+                            except (TypeError, ValueError, OverflowError):
+                                self.vehicle_attitudes.clear()
+                                continue
+                            if advanced:
+                                self.vehicle_attitudes.append(
+                                    VehicleAttitude(q, received, int(msg.time_boot_ms))
+                                )
+                            continue
+                        q = tuple(float(value) for value in msg.q)
+                        source = (
+                            int(msg.get_srcComponent()),
+                            int(getattr(msg, "gimbal_device_id", 0)),
+                        )
+                        if not 1 <= source[0] <= 255 or not 0 <= source[1] <= 6:
+                            continue
+                        clock = self.gimbal_clocks.setdefault(
+                            source, _BootClock(self.config.heartbeat_timeout_s)
+                        )
+                        advanced = clock.advance(int(msg.time_boot_ms), received)
+                        sample = GimbalAttitude(
+                            quaternion=q,
+                            flags=int(msg.flags),
+                            failure_flags=int(msg.failure_flags),
+                            delta_yaw=float(getattr(msg, "delta_yaw", float("nan"))),
+                            component_id=int(msg.get_srcComponent()),
+                            device_id=int(getattr(msg, "gimbal_device_id", 0)),
+                            received_monotonic=received,
+                            time_boot_ms=int(msg.time_boot_ms),
+                        )
+                        try:
+                            gimbal_reference_rotation(sample)
+                        except ValueError:
+                            # A new fault must not be hidden by a nearer old healthy
+                            # sample, including a fault with a repeated timestamp.
+                            self.gimbal_attitudes = deque(
+                                (
+                                    item
+                                    for item in self.gimbal_attitudes
+                                    if (item.component_id, item.device_id) != source
+                                ),
+                                maxlen=200,
+                            )
+                            continue
+                        if advanced:
+                            self.gimbal_attitudes.append(sample)
+                    except (TypeError, ValueError, OverflowError):
+                        continue
         else:
             # A pending newer armed/lost-link state must not be hidden behind telemetry.
             self.backlogged = True
+
+    def gimbal_attitude(self, frame_monotonic, *, component_id=0, device_id=0, max_skew_s=0.15):
+        sources = [
+            key
+            for key in self.gimbal_clocks
+            if (component_id == 0 or key[0] == component_id)
+            and (device_id == 0 or key[1] == device_id)
+        ]
+        if len(sources) > 1:
+            return None, "Multiple gimbals match; select explicit component/device IDs"
+        candidates = [
+            sample
+            for sample in self.gimbal_attitudes
+            if (component_id == 0 or sample.component_id == component_id)
+            and (device_id == 0 or sample.device_id == device_id)
+        ]
+        return self._nearest_attitude(candidates, frame_monotonic, max_skew_s, "Gimbal")
+
+    def vehicle_attitude(self, frame_monotonic, *, max_skew_s=0.15):
+        return self._nearest_attitude(
+            self.vehicle_attitudes, frame_monotonic, max_skew_s, "Aircraft"
+        )
+
+    @staticmethod
+    def _nearest_attitude(candidates, frame_monotonic, max_skew_s, name):
+        if not candidates:
+            return None, f"Waiting for valid {name.lower()} attitude with advancing device time"
+        sample = min(candidates, key=lambda item: abs(item.received_monotonic - frame_monotonic))
+        skew = abs(sample.received_monotonic - frame_monotonic)
+        if skew > max_skew_s:
+            return None, f"{name} attitude is not aligned to the frame ({skew * 1000:.0f} ms)"
+        return sample, None
 
     def fresh(self, now=None):
         now = time.monotonic() if now is None else now
@@ -151,6 +302,8 @@ class RouterLink:
             "peer": list(self.peer) if self.peer else None,
             "sent": self.sent,
             "backlogged": self.backlogged,
+            "gimbal_samples": len(self.gimbal_attitudes),
+            "vehicle_samples": len(self.vehicle_attitudes),
         }
 
     def close(self):

@@ -143,6 +143,17 @@
         <form id="camera-form" class="panel form-panel">
           <div class="form-grid">
             <label
+              >Camera profile<select id="camera-profile">
+                <option value="custom">Custom camera</option>
+              </select></label
+            >
+            <label
+              >Installation mode<select id="camera-mode">
+                <option value="fixed">Fixed camera</option>
+                <option value="gimbal">Gimbal camera</option>
+              </select></label
+            >
+            <label
               >Source type<select id="camera-kind">
                 <option value="rtsp">RTSP stream</option>
                 <option value="mjpeg">HTTP MJPEG stream</option>
@@ -193,6 +204,12 @@
                 required
             /></label>
           </div>
+          <h3>Fixed-camera geometry</h3>
+          <p class="help">
+            Camera profiles only fill connection defaults. They do not replace
+            calibration or prove that a camera/gimbal combination is supported
+            on an aircraft.
+          </p>
           <h3>Camera-to-body rotation</h3>
           <p>
             OpenCV camera axes → aircraft forward, right, down. The default is
@@ -206,10 +223,75 @@
             aria-label="Camera to body rotation matrix"
           ></textarea>
           <p class="help">
-            Camera position offsets belong in ArduPilot PLND_CAM_POS_X/Y/Z. Do
-            not add them to this rotation. Configure fixed focus and disable
-            digital stabilization or variable cropping at the camera.
+            In fixed mode, camera position offsets belong in ArduPilot
+            PLND_CAM_POS_X/Y/Z. Do not add them to this rotation. Configure
+            fixed focus and disable digital stabilization or variable cropping.
           </p>
+          <div id="gimbal-fields">
+            <h3>Gimbal-camera geometry and telemetry</h3>
+            <p>
+              OpenCV camera axes → gimbal-device forward, right, down. Output is
+              inhibited unless a matching, healthy, fresh gimbal attitude is
+              aligned with the frame and the optical axis is within the downward
+              envelope.
+            </p>
+            <textarea
+              id="camera-to-gimbal"
+              rows="4"
+              spellcheck="false"
+              aria-label="Camera to gimbal rotation matrix"
+            ></textarea>
+            <div class="form-grid">
+              <label
+                >Gimbal MAVLink component ID (0 = any)<input
+                  id="gimbal-component"
+                  type="number"
+                  min="0"
+                  max="255"
+                  required
+              /></label>
+              <label
+                >Gimbal device ID (0 = any)<input
+                  id="gimbal-device"
+                  type="number"
+                  min="0"
+                  max="6"
+                  required
+              /></label>
+              <label
+                >Attitude timeout, seconds<input
+                  id="gimbal-timeout"
+                  type="number"
+                  min="0.1"
+                  max="2"
+                  step="0.01"
+                  required
+              /></label>
+              <label
+                >Maximum frame/attitude skew, seconds<input
+                  id="gimbal-skew"
+                  type="number"
+                  min="0.02"
+                  max="0.5"
+                  step="0.01"
+                  required
+              /></label>
+              <label
+                >Maximum error from downward, degrees<input
+                  id="gimbal-down-error"
+                  type="number"
+                  min="1"
+                  max="45"
+                  step="0.1"
+                  required
+              /></label>
+            </div>
+            <p class="help">
+              Select explicit component/device IDs when more than one gimbal is
+              present. Receive-time alignment is an initial bounded mechanism;
+              measure transport delay on the installed camera before flight.
+            </p>
+          </div>
           <button type="submit">Save camera & mount</button>
         </form>
       </section>

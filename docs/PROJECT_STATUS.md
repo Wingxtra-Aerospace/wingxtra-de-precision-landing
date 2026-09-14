@@ -19,27 +19,12 @@ This is the authoritative progress register. Read the [development plan](DEVELOP
 
 ## Gimbal corrections under review
 
-[PR #36](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36) is open, ready for review and unmerged at [`176c9e0c3b761a158b88058049c0176d6bb68fe1`](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/commit/176c9e0c3b761a158b88058049c0176d6bb68fe1), based on main `5194f27551b4fad534915fbdd21e4d16febb77ff`. The correction supersedes the two software failures reproduced at `fa363e5680e577784194b3f023f114eecf16e055`; no human review or approval of this correction was present in the inspected discussion.
+Implementation reference: this PR's correction based on `fa363e5680e577784194b3f023f114eecf16e055`.
 
 - G01/G03: the companion now accepts autopilot `ATTITUDE` or `ATTITUDE_QUATERNION` and composes full aircraft roll/pitch/yaw with the gimbal's declared earth/heading frame before encoding BODY_FRD. Missing, invalid or misaligned aircraft data inhibits gimbal output. Fixed mode keeps its constant transform and requires neither attitude stream.
 - G02/G05: separate device clocks require progression before use; duplicates, reordered timestamps and implausible jumps cannot refresh accepted data. Bounded uint32 wrap is supported. Clock rollback does not automatically establish a new boot epoch; session reset is documented in D10. Invalid feedback clears healthy history, and multiple matching gimbals require explicit IDs.
 - Local software validation: **126 Python tests pass** (two dependency deprecation warnings), including **56 camera/gimbal tests**. Four wire/service regressions fail on the earlier implementation with the expected incorrect-vector/stale-acceptance assertions and pass with this correction. Ruff lint and all 32 Python files' formatting pass.
 - These two reproduced software defects are corrected in the proposed implementation. G01–G03/G05 remain IN REVIEW; full T06/T07 bench/HIL, exposure-time mapping, camera/gimbal/firmware identification, lever-arm handling and aircraft acceptance remain outstanding. Existing downward-angle limits are preserved. This does not change aircraft settings or select a landing-loss policy.
-
-| Current evidence | Result and boundary |
-|---|---|
-| [CI run 34830596708](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34830596708), attempt 1, last updated 2026-09-14 10:00:33 UTC | Completed successfully for `176c9e0c3b761a158b88058049c0176d6bb68fe1`. This validates the proposed implementation; it is not merged, deployed or flight-qualified. |
-| [Python job 103932758067](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34830596708/job/103932758067) | **126 Python tests pass**, with two dependency deprecation warnings; **12 Lua API-stub scenarios pass**. Ruff lint/format, frontend syntax/format and browser checks pass. Stubbed APIs do not validate installed firmware. |
-| [AMD64 job 103933031659](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34830596708/job/103933031659) and [ARM64 job 103933031693](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34830596708/job/103933031693) | Each native Debian OpenCV test run reports **126 passed**; image builds, startup/health and disabled-output checks pass. Registry push and manifest publication are intentionally skipped for pull requests. |
-| Run artifacts | [python-test-results, 10342131718](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34830596708/artifacts/10342131718); [blueos-image-amd64, 10342002551](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34830596708/artifacts/10342002551); [blueos-image-arm64, 10342471042](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34830596708/artifacts/10342471042). Job logs and artifact metadata were inspected. The archives were not independently installed on the selected CM4. |
-
-Artifact archive digests reported by GitHub for this run are:
-
-| Artifact | Archive SHA-256 (not an installed image digest) |
-|---|---|
-| python-test-results | `2e236be746601b26191126dfb8aec0e1a56c6e5761d6bb3b4da7b3a35f1571ec` |
-| blueos-image-amd64 | `50dd05ca73c689bb4965f3bc143badf62ae0d5ffbd78a6e31ded5ec3e982fcc1` |
-| blueos-image-arm64 | `bec63d81cb82d810bfa4ee45b7c0656a9ca03444c0deade716bd7842ce07fcdf` |
 
 ## Earlier implementation review — PR #36
 
@@ -54,7 +39,7 @@ The unused `half` assignment was removed in `e8b19575bcf404a59765b447f78ad2d0dc3
 | [AMD64 job 103921869873](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062/job/103921869873) and [ARM64 job 103921869879](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062/job/103921869879) | Image builds, Debian OpenCV tests and container startup/health checks pass. Registry push and the manifest job are skipped by the pull-request workflow conditions; no published release is claimed. |
 | GitHub artifacts for this run | [python-test-results, 10340224686](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062/artifacts/10340224686); [blueos-image-amd64, 10339988732](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062/artifacts/10339988732); [blueos-image-arm64, 10340419758](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/actions/runs/34827077062/artifacts/10340419758). Artifact metadata and job logs were inspected; image archives were not independently installed on the selected CM4. |
 
-**The following defects remained in that earlier tree despite passing CI.** Two automated review findings against parent `e8b19575bcf404a59765b447f78ad2d0dc369ad2` were independently checked against the earlier `fa363e5680e577784194b3f023f114eecf16e055` tree and reproduced with read-only synthetic inputs. No human review or approval was present at this snapshot.
+**The following defects remained in that earlier tree despite passing CI.** Two automated review findings against parent `e8b19575bcf404a59765b447f78ad2d0dc369ad2` were independently checked against the current PR tree and reproduced with read-only synthetic inputs. No human review or approval was present at this snapshot.
 
 | Affected work / test | Verified earlier blocker | Correction identified at that review |
 |---|---|---|
@@ -115,7 +100,7 @@ Owner roles are proposed responsibilities, not assignments to named staff. Engin
 | R05 | Finalise coordinate, timing, health and version contracts / Engineering | IN PROGRESS | D10 documents the implemented frame/clock handling; exposure-time mapping, R01–R04 and aircraft recovery policy remain open | Reviewed interfaces, measured timing and migration design still required; receipt-time bounds are not exposure-time synchronisation |
 | REF01 | Compare Landmark with Wingxtra / Engineering | BLOCKED | Waiting for user-supplied files, settings and optional successful logs | Read-only review and reproducible comparisons; source/binary limitations recorded. Does not block independent Wingxtra development. |
 | F01 | Vendor a versioned Wingxtra QuadPlane applet / Engineering | IN REVIEW | Review implementation; R01/R04/R05 still gate SITL/aircraft acceptance | Applet pins upstream `9456449a442617b2af1c3132b64c3120f1694583`, preserves GPL-3.0-or-later provenance and documents installation |
-| F02 | Correct acceptance order and robust applet guards / Engineering | IN REVIEW | Independent applet review and version-matched Lua/SITL tests remain | The documented roll/pitch/yaw return order is implemented in `fa363e5680e577784194b3f023f114eecf16e055`; all 12 Lua API-stub scenarios pass again in CI run 34830596708 at `176c9e0c3b761a158b88058049c0176d6bb68fe1`, including missing feedback and fixed-mode independence. Firmware/SITL acceptance remains pending. |
+| F02 | Correct acceptance order and robust applet guards / Engineering | IN REVIEW | Independent applet review and version-matched Lua/SITL tests remain | The documented roll/pitch/yaw return order is implemented in `fa363e5680e577784194b3f023f114eecf16e055`; all 12 Lua API-stub scenarios pass in CI run 34827077062, including missing feedback and fixed-mode independence. Firmware/SITL acceptance remains pending. |
 | F03 | Add flight-controller readiness and loss supervision / Engineering | IN PROGRESS | R04–R05 remain required for policy completion | Proposed applet fails closed on unavailable target/gimbal inputs; total companion failure and target-loss aircraft policy are not yet accepted |
 | F04 | Preserve fixed-camera operation and introduce explicit camera modes / Engineering | IN REVIEW | Review automated fixed-mode regression and configuration migration | Proposed `fixed` mode retains the constant BODY_FRD transform and never calls the mount API; `gimbal` is explicit, with complete failure rejection still gated by G05/T07 |
 | F05 | Commission fixed camera on CM4/BlueOS/Pixhawk and simulate intended modes / Integration | PLANNED | F02–F04, R01–R03 | Fixed-camera portions of T01–T04 and T09–T13; measured load, latency, power and routing. T08 remains under M4 and T14 under M6. |
@@ -139,7 +124,7 @@ Owner roles are proposed responsibilities, not assignments to named staff. Engin
 
 ## Immediate next actions
 
-1. Review the G01–G03/G05 corrections in [PR #36](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36), its regression evidence and successful CI run 34830596708; then complete the version-matched integration gates. The two reproduced software defects are corrected, but merge does not establish hardware or aircraft acceptance.
+1. Review the G01–G03/G05 corrections in [PR #36](https://github.com/Wingxtra-Aerospace/wingxtra-de-precision-landing/pull/36), its regression evidence and GitHub checks; then complete the version-matched integration gates. The two reproduced software defects are corrected, but merge does not establish hardware or aircraft acceptance.
 2. Record exact flight firmware and fixed-camera/gimbal models when available (R01–R02).
 3. Agree measurable landing requirements and failure behaviour (R03–R04).
 4. Add Landmark evidence when the card arrives; continue to distinguish that system's success from Wingxtra qualification.
