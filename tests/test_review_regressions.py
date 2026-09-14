@@ -134,6 +134,33 @@ def test_undrained_telemetry_backlog_blocks_output():
         link.close()
 
 
+def test_armed_heartbeat_arriving_during_poll_is_not_discarded_as_older(monkeypatch):
+    from pymavlink.dialects.v20 import common as mavlink
+
+    link = RouterLink(OutputConfig(listen_port=free_port()))
+    parse = mavlink.MAVLink.parse_buffer
+    delayed = False
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as router:
+
+            def parse_with_receive_delay(parser, data):
+                nonlocal delayed
+                messages = parse(parser, data)
+                if not delayed:
+                    delayed = True
+                    time.sleep(0.04)
+                    router.sendto(heartbeat(armed=True), link.socket.getsockname())
+                    time.sleep(0.04)
+                return messages
+
+            monkeypatch.setattr(mavlink.MAVLink, "parse_buffer", parse_with_receive_delay)
+            router.sendto(heartbeat(), link.socket.getsockname())
+            link.poll()
+            assert link.fresh() and link.armed is True
+    finally:
+        link.close()
+
+
 def test_setup_reads_pending_armed_heartbeat_before_editing(tmp_path, board_data):
     service = make_service(tmp_path, board_data)
     service._open_link()

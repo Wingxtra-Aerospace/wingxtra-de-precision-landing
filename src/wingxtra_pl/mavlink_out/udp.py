@@ -74,7 +74,8 @@ class RouterLink:
         self.sent = 0
 
     def poll(self, now=None):
-        now = time.monotonic() if now is None else now
+        started = time.monotonic()
+        now = started if now is None else now
         self.backlogged = False
         for _ in range(64):
             try:
@@ -90,9 +91,12 @@ class RouterLink:
                     received_ns = seconds * 1_000_000_000 + nanos
             if received_ns is None:
                 continue  # A datagram without a trustworthy receive age cannot authorize output.
+            # Advance the monotonic reference for every receive. Using the poll's
+            # start time with a later wall-clock sample can reverse packet order.
+            current = now + (time.monotonic() - started)
             age = (time.time_ns() - received_ns) / 1_000_000_000
-            received = now - age
-            if self.peer is not None and peer != self.peer and self.fresh(now):
+            received = current - age
+            if self.peer is not None and peer != self.peer and self.fresh(current):
                 continue
             # Routers send complete messages per datagram. Never join an old partial
             # message to newer bytes and attribute the new packet's timestamp to it.

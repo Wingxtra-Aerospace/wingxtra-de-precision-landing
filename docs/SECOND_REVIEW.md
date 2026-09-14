@@ -17,7 +17,7 @@ The new failure-case tests were run against the original code before fixes. Seve
 
 ## Verification
 
-The repository suite now contains 69 Python tests. It exercises real OpenCV detections, actual MAVLink packet decoding and local UDP sockets as well as isolated failure injection, including explicit invalid CLI/environment overrides. The browser suite additionally checks loss/recovery of status traffic and clears old coordinates/previews. CI runs the same Python suite in the native ARM64 and AMD64 Debian/OpenCV runtimes, starts the actual packaged service with its container permissions, checks health/registration, and exports each image.
+The repository suite now contains 70 Python tests. It exercises real OpenCV detections, actual MAVLink packet decoding and local UDP sockets as well as isolated failure injection, including explicit invalid CLI/environment overrides. A timing regression also injects an armed heartbeat during a slow receive poll: timestamp conversion advances its monotonic reference for every packet so the newer state is never mistaken for an older packet. The browser suite additionally checks loss/recovery of status traffic and clears old coordinates/previews. CI runs the same Python suite in the native ARM64 and AMD64 Debian/OpenCV runtimes, starts the actual packaged service with its container permissions, checks health/registration, and exports each image.
 
 Install only the exact commit with a successful complete workflow; the pull request and Actions run provide the final build evidence. Synthetic camera/calibration fixtures remain test-only and output-inhibited. No real calibration or flight result is included.
 
